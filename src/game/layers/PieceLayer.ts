@@ -21,6 +21,8 @@ export class PieceLayer {
   private readonly tokenById = new Map<string, Phaser.GameObjects.Container>();
   /** 移動先ハイライトのリング。 */
   private highlights: Phaser.GameObjects.Graphics[] = [];
+  /** 支店マーカー（所有者色のリング＋レベルピップ）。 */
+  private branchMarkers: Phaser.GameObjects.GameObject[] = [];
   /** ストア購読解除関数。 */
   private unsubscribe?: () => void;
   /** アニメーション中の移動を一度だけ処理するためのガード。 */
@@ -75,12 +77,59 @@ export class PieceLayer {
       });
     }
 
+    this.drawBranches(s);
     this.drawHighlights(s);
 
     // moving フェーズ：未処理の pendingMove があればアニメーション開始
     if (s.phase === 'moving' && s.pendingMove && !this.animating) {
       this.animateMove(s.pendingMove.path);
     }
+  }
+
+  /** 所有支店を、所有者色のリング＋レベルピップで都市に描く。 */
+  private drawBranches(s: GameStore): void {
+    this.clearBranches();
+    const colorOf = (ownerId: string) => {
+      const owner = s.players.find((p) => p.id === ownerId);
+      return owner
+        ? Phaser.Display.Color.HexStringToColor(owner.color).color
+        : 0xffffff;
+    };
+
+    for (const cid in s.branches) {
+      const city = CITY_BY_ID[cid];
+      if (!city) continue;
+      const branch = s.branches[cid];
+      const color = colorOf(branch.ownerId);
+
+      // 所有者色のリング（ノードを囲う）
+      const ring = this.scene.add.graphics({ x: city.x, y: city.y });
+      ring.lineStyle(3, color, 0.95);
+      ring.strokeCircle(0, 0, 21);
+      this.applyGlow(ring, color, 2.5);
+      this.container.add(ring);
+      this.branchMarkers.push(ring);
+
+      // レベルピップ（ノード上部に level 個）
+      const pips = this.scene.add.graphics();
+      const pipW = 5;
+      const gap = 2;
+      const total = branch.level * pipW + (branch.level - 1) * gap;
+      let px = city.x - total / 2;
+      const py = city.y - 30;
+      pips.fillStyle(color, 1);
+      for (let i = 0; i < branch.level; i++) {
+        pips.fillRect(px, py, pipW, pipW);
+        px += pipW + gap;
+      }
+      this.container.add(pips);
+      this.branchMarkers.push(pips);
+    }
+  }
+
+  private clearBranches(): void {
+    this.branchMarkers.forEach((m) => m.destroy());
+    this.branchMarkers = [];
   }
 
   /** 移動先候補をゴールドのリングでハイライト（パルス付き）。 */
@@ -181,6 +230,7 @@ export class PieceLayer {
   destroy(): void {
     this.unsubscribe?.();
     this.clearHighlights();
+    this.clearBranches();
     this.tokenById.forEach((t) => t.destroy());
     this.tokenById.clear();
     this.container.destroy();
