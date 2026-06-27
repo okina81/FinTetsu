@@ -118,10 +118,34 @@ const CITY_META: CityMeta[] = [
   },
 ];
 
+/**
+ * 描画上のずらし量（px）。実際の地理座標では関東〜近畿の都市が密集して
+ * ノードもラベルも重なるため、可読性のため微小に離す（路線は id で繋がる
+ * ため整合は保たれる）。座標データ本体（japanGeo）は変更しない。
+ */
+const NUDGE: Record<string, [number, number]> = {
+  tokyo: [10, -12],
+  yokohama: [16, 16],
+  nagoya: [4, 10],
+  osaka: [-12, 10],
+  kyoto: [10, -12],
+  kanazawa: [-2, -8],
+};
+
+/** ラベルの配置方向（密集都市の重なり回避）。 */
+const LABEL_POS: Record<string, City['labelPos']> = {
+  tokyo: 'right',
+  yokohama: 'right',
+  kyoto: 'above',
+  osaka: 'left',
+  kanazawa: 'left',
+};
+
 export const CITIES: City[] = CITY_META.map((m) => {
   const xy = CITY_XY[m.id];
   if (!xy) throw new Error(`CITY_XY missing coordinate for "${m.id}"`);
-  return { ...m, x: xy[0], y: xy[1] };
+  const [dx, dy] = NUDGE[m.id] ?? [0, 0];
+  return { ...m, x: xy[0] + dx, y: xy[1] + dy, labelPos: LABEL_POS[m.id] };
 });
 
 export const ROUTES: Route[] = [

@@ -63,8 +63,11 @@ export type GameStore = {
   message: string;
   /** ゲーム終了時の勝者 id。 */
   winnerId: string | null;
+  /** タイトル画面を抜けてゲームを開始したか。 */
+  started: boolean;
 
   // --- アクション ---
+  startGame: () => void;
   rollDice: () => void;
   chooseDestination: (dest: string) => void;
   completeMove: () => void;
@@ -96,6 +99,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
   branches: {},
   message: 'サイコロを振って移動しよう',
   winnerId: null,
+  started: false,
+
+  startGame: () => set({ started: true }),
 
   rollDice: () => {
     const { phase, players, currentPlayerIndex } = get();
@@ -258,6 +264,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       branches: {},
       message: 'サイコロを振って移動しよう',
       winnerId: null,
+      started: true, // リプレイはタイトルを経由せず即開始
     }),
 
   currentPlayer: () => {

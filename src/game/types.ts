@@ -9,6 +9,9 @@ export type CityType =
   | 'financial' // 金融都市
   | 'rural'; // 過疎地域
 
+/** ラベルの配置方向（密集都市の重なり回避用）。既定は below。 */
+export type LabelPos = 'below' | 'above' | 'left' | 'right';
+
 export type City = {
   id: string;
   name: string;
@@ -18,6 +21,8 @@ export type City = {
   y: number;
   population: number; // 10-100
   industryIndex: number; // 10-100
+  /** 都市名ラベルの配置（密集回避）。 */
+  labelPos?: LabelPos;
   ownerId?: string | null;
   branchLevel?: 0 | 1 | 2 | 3 | 4 | 5;
 };

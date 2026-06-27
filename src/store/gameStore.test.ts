@@ -16,6 +16,12 @@ describe('gameStore — ループ基本', () => {
     expect(s().phase).toBe('roll');
   });
 
+  it('startGame で started が true になる', () => {
+    useGameStore.setState({ started: false });
+    s().startGame();
+    expect(s().started).toBe(true);
+  });
+
   it('rollDice は出目と候補を出し select へ', () => {
     vi.spyOn(Math, 'random').mockReturnValue(0.5); // 出目 4
     s().rollDice();

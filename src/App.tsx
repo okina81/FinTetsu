@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import { PhaserContainer } from '@/components/PhaserContainer';
 import { useGameStore, MAX_TURN, formatMan } from '@/store/gameStore';
 import { useCpuController } from '@/hooks/useCpuController';
@@ -19,10 +20,8 @@ export default function App() {
   const players = useGameStore((s) => s.players);
   const branches = useGameStore((s) => s.branches);
   const currentPlayerIndex = useGameStore((s) => s.currentPlayerIndex);
-  const message = useGameStore((s) => s.message);
   const totalAssets = useGameStore((s) => s.totalAssets);
-
-  const me = players[currentPlayerIndex];
+  const started = useGameStore((s) => s.started);
 
   return (
     <div className="flex h-full w-full flex-col bg-midnight-navy text-off-white">
@@ -75,10 +74,7 @@ export default function App() {
       <ActionBar />
 
       {phase === 'gameover' && <ResultOverlay />}
-
-      {/* 下部メッセージは ActionBar 内のステータスに集約。me は将来の拡張用 */}
-      <span className="sr-only">{me?.name}</span>
-      <span className="sr-only">{message}</span>
+      {!started && <TitleOverlay />}
     </div>
   );
 }
@@ -195,19 +191,11 @@ function ActionBar() {
 
   return (
     <footer className="flex items-center gap-3 border-t border-white/10 px-5 py-3">
-      <button
-        type="button"
-        disabled={!(isHuman && phase === 'roll')}
-        onClick={rollDice}
-        className={isHuman && phase === 'roll' ? primary : disabled}
-      >
-        🎲 サイコロを振る
-        {dice != null && (
-          <span className="font-data ml-2 rounded bg-midnight-navy/30 px-1.5">
-            {dice}
-          </span>
-        )}
-      </button>
+      <DiceButton
+        enabled={isHuman && phase === 'roll'}
+        dice={dice}
+        onRoll={rollDice}
+      />
 
       {isHuman && phase === 'action' && a.canBuild && (
         <button type="button" onClick={buildBranch} className={ghost}>
@@ -233,6 +221,102 @@ function ActionBar() {
         ターン終了 ▶
       </button>
     </footer>
+  );
+}
+
+/**
+ * サイコロボタン。クリックで出目をスロット風に回し、確定時にバウンス。
+ * 実装設計書 3-4 の出目演出を React 側で表現する。
+ */
+function DiceButton({
+  enabled,
+  dice,
+  onRoll,
+}: {
+  enabled: boolean;
+  dice: number | null;
+  onRoll: () => void;
+}) {
+  const [rolling, setRolling] = useState(false);
+  const [face, setFace] = useState(dice ?? 1);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, []);
+
+  const handleClick = () => {
+    if (!enabled || rolling) return;
+    setRolling(true);
+    intervalRef.current = setInterval(() => {
+      setFace(1 + Math.floor(Math.random() * 6));
+    }, 70);
+    window.setTimeout(() => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      setRolling(false);
+      onRoll(); // 演出のあとに実際の出目を確定
+    }, 650);
+  };
+
+  const shown = rolling ? face : dice;
+  const active = enabled || rolling;
+
+  return (
+    <button
+      type="button"
+      disabled={!active}
+      onClick={handleClick}
+      className={
+        active
+          ? 'rounded-lg bg-finance-gold px-4 py-2 text-sm font-bold text-midnight-navy transition hover:brightness-110'
+          : 'cursor-not-allowed rounded-lg bg-finance-gold/90 px-4 py-2 text-sm font-bold text-midnight-navy opacity-50'
+      }
+    >
+      🎲 サイコロを振る
+      {shown != null && (
+        <span
+          key={`${rolling}-${shown}`}
+          className={`font-data ml-2 inline-block rounded bg-midnight-navy/30 px-1.5 ${
+            rolling ? 'animate-dice-spin' : 'animate-dice-pop'
+          }`}
+        >
+          {shown}
+        </span>
+      )}
+    </button>
+  );
+}
+
+/** タイトル画面。ゲーム開始までマップ上に重ねる。 */
+function TitleOverlay() {
+  const startGame = useGameStore((s) => s.startGame);
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-midnight-navy/85 backdrop-blur-sm">
+      <p className="mb-2 font-data text-xs tracking-[0.3em] text-telegraph-blue">
+        BANK ﹡ RAIL ﹡ JAPAN
+      </p>
+      <h1 className="animate-title-glow font-display text-6xl font-bold text-finance-gold">
+        FinTetsu
+      </h1>
+      <p className="mt-1 font-display text-2xl text-off-white">フィン鉄</p>
+      <p className="mt-5 max-w-md text-center text-sm leading-relaxed text-smoke-gray">
+        日本全国を巡り、銀行支店を買収・経営して
+        <br />
+        地域経済を育て、資産日本一を目指せ。
+      </p>
+      <button
+        type="button"
+        onClick={startGame}
+        className="mt-8 rounded-xl bg-finance-gold px-8 py-3 text-base font-bold text-midnight-navy shadow-lg transition hover:brightness-110"
+      >
+        ゲーム開始 ▶
+      </button>
+      <p className="mt-6 font-data text-[11px] text-smoke-gray">
+        あなた + CPU銀行 3行 ／ 100ターン or 総資産1億円で決着
+      </p>
+    </div>
   );
 }
 

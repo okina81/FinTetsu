@@ -24,6 +24,28 @@ export default {
         sans: ['"Noto Sans JP"', 'sans-serif'], // UI本文
         mono: ['"JetBrains Mono"', 'monospace'], // 数字・データ
       },
+      keyframes: {
+        // サイコロ確定時のバウンス（実装設計書 3-4 出目演出）
+        dicePop: {
+          '0%': { transform: 'scale(1.6) rotate(-12deg)', opacity: '0.4' },
+          '60%': { transform: 'scale(0.92) rotate(4deg)', opacity: '1' },
+          '100%': { transform: 'scale(1) rotate(0deg)', opacity: '1' },
+        },
+        // サイコロ回転中のシェイク
+        diceSpin: {
+          '0%,100%': { transform: 'rotate(-8deg)' },
+          '50%': { transform: 'rotate(8deg)' },
+        },
+        titleGlow: {
+          '0%,100%': { textShadow: '0 0 12px rgba(245,200,66,0.5)' },
+          '50%': { textShadow: '0 0 24px rgba(245,200,66,0.9)' },
+        },
+      },
+      animation: {
+        'dice-pop': 'dicePop 0.4s ease-out',
+        'dice-spin': 'diceSpin 0.12s linear infinite',
+        'title-glow': 'titleGlow 2.4s ease-in-out infinite',
+      },
     },
   },
   plugins: [],

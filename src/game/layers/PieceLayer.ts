@@ -182,6 +182,7 @@ export class PieceLayer {
 
     const idx = store.currentPlayerIndex;
     const off = this.tokenOffset(idx, store.players.length);
+    const color = Phaser.Display.Color.HexStringToColor(player.color).color;
     // path[0] は現在地。1 個目以降を順に辿る。
     const segments = path.slice(1).map((cid) => {
       const c = CITY_BY_ID[cid];
@@ -193,6 +194,8 @@ export class PieceLayer {
     const step = (i: number) => {
       if (i >= segments.length) {
         this.animating = false;
+        const last = segments[segments.length - 1];
+        this.arrivalEffect(last.x, last.y, color);
         useGameStore.getState().completeMove();
         return;
       }
@@ -206,6 +209,24 @@ export class PieceLayer {
       });
     };
     step(0);
+  }
+
+  /** 到着エフェクト：プレイヤー色のリングが弾けて消える。 */
+  private arrivalEffect(x: number, y: number, color: number): void {
+    const ring = this.scene.add.graphics({ x, y });
+    ring.lineStyle(3, color, 1);
+    ring.strokeCircle(0, 0, 14);
+    this.applyGlow(ring, color, 4);
+    this.container.add(ring);
+
+    this.scene.tweens.add({
+      targets: ring,
+      scale: { from: 0.4, to: 2.4 },
+      alpha: { from: 1, to: 0 },
+      duration: 520,
+      ease: 'Cubic.out',
+      onComplete: () => ring.destroy(),
+    });
   }
 
   /** 同一都市で複数コマが重ならないよう、円状に少しずらす。 */
