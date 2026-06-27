@@ -1,12 +1,14 @@
 import Phaser from 'phaser';
 import type { City } from '../types';
 import { CITIES, ROUTES, CITY_BY_ID } from '../mapData';
+import { JAPAN_PATHS } from '../japanGeo';
 import { HEX, CITY_TYPE_COLOR, CITY_TYPE_LABEL, FONTS } from '../theme';
 
 /**
  * 実装設計書 4 / シグネチャ要素「路線ネオングロウ」。
  *
  * MapLayer は日本列島マップの静的レイヤーを描画する：
+ *   - 日本列島シルエット（海岸線をネオン発光させた最下層）
  *   - 路線エッジ（Graphics で描き postFX.addGlow でネオン管のように発光）
  *   - 都市ノード（産業タイプ別の色・グロウ付き）
  *   - 都市名ラベル（Noto Serif JP）
@@ -18,6 +20,10 @@ export class MapLayer {
   /** レイヤー全体をまとめるコンテナ（深度管理用）。 */
   readonly container: Phaser.GameObjects.Container;
 
+  /** 日本列島の陸地塗り。 */
+  private landGfx!: Phaser.GameObjects.Graphics;
+  /** 海岸線のネオン発光ライン。 */
+  private coastGfx!: Phaser.GameObjects.Graphics;
   /** 路線の発光ライン。 */
   private routeGfx!: Phaser.GameObjects.Graphics;
   /** 都市ノードの円。 */
@@ -25,13 +31,54 @@ export class MapLayer {
 
   /** ノード半径（産業タイプ共通）。 */
   private static readonly NODE_RADIUS = 16;
+  /** 陸地塗り色（海より一段暗くしてシルエットを締める）。 */
+  private static readonly LAND_FILL = 0x101b2e;
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
     this.container = scene.add.container(0, 0);
 
+    this.drawJapan(); // 最下層：日本列島シルエット
     this.drawRoutes();
     this.drawNodes();
+  }
+
+  /**
+   * 日本列島の海岸線シルエットを描く（最下層）。
+   * 陸地を暗く塗り、海岸線を電信ブルーでネオン発光させる。
+   */
+  private drawJapan(): void {
+    // 陸地塗り（グロウなし・マット）
+    const land = this.scene.add.graphics();
+    land.fillStyle(MapLayer.LAND_FILL, 0.92);
+    for (const ring of JAPAN_PATHS) {
+      this.tracePath(land, ring);
+      land.fillPath();
+    }
+    this.landGfx = land;
+    this.container.add(land);
+
+    // 海岸線（ネオングロウ）
+    const coast = this.scene.add.graphics();
+    coast.lineStyle(1.5, HEX.telegraphBlue, 0.55);
+    for (const ring of JAPAN_PATHS) {
+      this.tracePath(coast, ring);
+      coast.closePath();
+      coast.strokePath();
+    }
+    this.applyGlow(coast, HEX.telegraphBlue, 2);
+    this.coastGfx = coast;
+    this.container.add(coast);
+  }
+
+  /** リング（[x,y] 配列）を現在の Graphics パスへ写す。 */
+  private tracePath(gfx: Phaser.GameObjects.Graphics, ring: number[][]): void {
+    if (ring.length === 0) return;
+    gfx.beginPath();
+    gfx.moveTo(ring[0][0], ring[0][1]);
+    for (let i = 1; i < ring.length; i++) {
+      gfx.lineTo(ring[i][0], ring[i][1]);
+    }
   }
 
   /** 路線を 1 枚の Graphics にまとめて描き、ネオングロウを付与する。 */
@@ -164,6 +211,8 @@ export class MapLayer {
   }
 
   destroy(): void {
+    this.landGfx?.destroy();
+    this.coastGfx?.destroy();
     this.routeGfx?.destroy();
     this.nodeGfxById.forEach((g) => g.destroy());
     this.nodeGfxById.clear();
