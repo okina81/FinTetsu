@@ -3,6 +3,8 @@ import type { City } from '../types';
 import { CITIES, ROUTES, CITY_BY_ID } from '../mapData';
 import { JAPAN_PATHS } from '../japanGeo';
 import { HEX, CITY_TYPE_COLOR, CITY_TYPE_LABEL, FONTS } from '../theme';
+import { useGameStore } from '@/store/gameStore';
+import type { GameStore } from '@/store/gameStore';
 
 /**
  * 実装設計書 4 / シグネチャ要素「路線ネオングロウ」。
@@ -24,10 +26,17 @@ export class MapLayer {
   private landGfx!: Phaser.GameObjects.Graphics;
   /** 海岸線のネオン発光ライン。 */
   private coastGfx!: Phaser.GameObjects.Graphics;
-  /** 路線の発光ライン。 */
+  /** 路線の発光ライン（既定の電信ブルー）。 */
   private routeGfx!: Phaser.GameObjects.Graphics;
+  /** プレイヤーごとの「自支店ネットワーク路線」発光ライン（Step 4 路線染め）。 */
+  private readonly ownedRouteGfxById = new Map<
+    string,
+    Phaser.GameObjects.Graphics
+  >();
   /** 都市ノードの円。 */
   private readonly nodeGfxById = new Map<string, Phaser.GameObjects.Graphics>();
+  /** ストア購読解除関数。 */
+  private unsubscribe?: () => void;
 
   /** ノード半径（産業タイプ共通）。 */
   private static readonly NODE_RADIUS = 16;
@@ -40,7 +49,14 @@ export class MapLayer {
 
     this.drawJapan(); // 最下層：日本列島シルエット
     this.drawRoutes();
+    this.setupOwnedRoutes(); // Step 4：プレイヤー色の路線レイヤー
     this.drawNodes();
+
+    // 支店の増減に応じて路線染めを更新
+    this.refreshOwnedRoutes(useGameStore.getState());
+    this.unsubscribe = useGameStore.subscribe((s) =>
+      this.refreshOwnedRoutes(s),
+    );
   }
 
   /**
@@ -110,6 +126,49 @@ export class MapLayer {
       gfx.moveTo(a.x, a.y);
       gfx.lineTo(b.x, b.y);
       gfx.strokePath();
+    }
+  }
+
+  /**
+   * Step 4：プレイヤーごとの路線オーバーレイ Graphics を用意する。
+   * 各プレイヤー色のグロウを 1 度だけ付与し、以降は内容を描き替える。
+   */
+  private setupOwnedRoutes(): void {
+    for (const p of useGameStore.getState().players) {
+      const gfx = this.scene.add.graphics();
+      const color = Phaser.Display.Color.HexStringToColor(p.color).color;
+      this.applyGlow(gfx, color, 5);
+      this.ownedRouteGfxById.set(p.id, gfx);
+      this.container.add(gfx);
+    }
+  }
+
+  /**
+   * 自支店ネットワークの路線を所有者色で塗る。
+   * 路線の両端都市が同一プレイヤーの支店なら、その色で発光させる
+   * （ターンが進むにつれ日本列島がプレイヤー色に染まっていく演出）。
+   */
+  private refreshOwnedRoutes(s: GameStore): void {
+    const ownerOf = (cityId: string): string | null =>
+      s.branches[cityId]?.ownerId ?? null;
+
+    for (const p of s.players) {
+      const gfx = this.ownedRouteGfxById.get(p.id);
+      if (!gfx) continue;
+      gfx.clear();
+      const color = Phaser.Display.Color.HexStringToColor(p.color).color;
+      gfx.lineStyle(4, color, 0.9);
+      for (const route of ROUTES) {
+        if (ownerOf(route.from) === p.id && ownerOf(route.to) === p.id) {
+          const a = CITY_BY_ID[route.from];
+          const b = CITY_BY_ID[route.to];
+          if (!a || !b) continue;
+          gfx.beginPath();
+          gfx.moveTo(a.x, a.y);
+          gfx.lineTo(b.x, b.y);
+          gfx.strokePath();
+        }
+      }
     }
   }
 
@@ -263,9 +322,12 @@ export class MapLayer {
   }
 
   destroy(): void {
+    this.unsubscribe?.();
     this.landGfx?.destroy();
     this.coastGfx?.destroy();
     this.routeGfx?.destroy();
+    this.ownedRouteGfxById.forEach((g) => g.destroy());
+    this.ownedRouteGfxById.clear();
     this.nodeGfxById.forEach((g) => g.destroy());
     this.nodeGfxById.clear();
     this.container.destroy();
