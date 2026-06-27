@@ -30,11 +30,7 @@ export default function App() {
         </h1>
         <div className="flex items-center gap-6 text-sm">
           <span className="font-data text-smoke-gray">
-            ターン{' '}
-            <span className="text-off-white">
-              {turn}
-            </span>
-            /{MAX_TURN}
+            ターン <span className="text-off-white">{turn}</span>/{MAX_TURN}
           </span>
           <span className="flex items-center gap-2 text-smoke-gray">
             景気

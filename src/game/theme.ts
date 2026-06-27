@@ -17,7 +17,12 @@ export const COLORS = {
 } as const;
 
 /** プレイヤー支店色（P1〜P4） */
-export const PLAYER_COLORS = ['#00b4d8', '#ff4d6d', '#4caf50', '#ff9800'] as const;
+export const PLAYER_COLORS = [
+  '#00b4d8',
+  '#ff4d6d',
+  '#4caf50',
+  '#ff9800',
+] as const;
 
 /** Phaser 用 number カラー（0xRRGGBB） */
 export const HEX = {

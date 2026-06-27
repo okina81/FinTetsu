@@ -1,0 +1,5 @@
+dist
+node_modules
+src/game/japanGeo.ts
+package-lock.json
+docs

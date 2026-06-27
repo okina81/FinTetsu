@@ -32,10 +32,18 @@ export type MoveOption = {
  * - 直前にいたノードへは引き返せない（行き止まりを除く一般的なボードゲーム挙動）。
  * - 同一都市へ複数経路がある場合は最初に見つかった経路を採用する。
  */
-export function reachableDestinations(start: string, steps: number): MoveOption[] {
+export function reachableDestinations(
+  start: string,
+  steps: number,
+): MoveOption[] {
   const found = new Map<string, string[]>();
 
-  const walk = (node: string, prev: string | null, remaining: number, path: string[]) => {
+  const walk = (
+    node: string,
+    prev: string | null,
+    remaining: number,
+    path: string[],
+  ) => {
     if (remaining === 0) {
       if (node !== start && !found.has(node)) found.set(node, path);
       return;
