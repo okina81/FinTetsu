@@ -45,13 +45,13 @@ npm test             # Vitest（pathfind / gameStore のユニットテスト）
 - [x] **Step 3** MapLayer で都市ノード＋路線を描画（ネオングロウ込み）
 - [x] **Step 5** Zustand でゲーム状態の骨格（`store/gameStore.ts`）
 - [x] **Step 6** サイコロ → コマ移動ループ（`PieceLayer` + `pathfind`）
+- [x] **Step 7** 支店設立・強化・手数料徴収・収益（`branchSpec` + 経済ロジック）
+- [x] **Step 8** React サイドパネル（全プレイヤー資産・支店一覧）
+- [x] **Step 10** CPU AI（簡易・`useCpuController`）
+- [x] **Step 12** 勝利判定・リザルト画面（1億円達成 / 100ターン）
 - [ ] Step 4 ネオングロウの拡張（自支店路線の色染め）
-- [ ] Step 7 支店設立・手数料徴収
-- [ ] Step 8 React サイドパネル（HUD・資産表示）
 - [ ] Step 9 イベントカードシステム
-- [ ] Step 10 CPU AI
 - [ ] Step 11 景気ゲージ・地域育成
-- [ ] Step 12 勝利判定・リザルト画面
 
 ## ディレクトリ構成
 
