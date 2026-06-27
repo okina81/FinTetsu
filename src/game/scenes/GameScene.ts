@@ -1,15 +1,18 @@
 import Phaser from 'phaser';
 import { MapLayer } from '../layers/MapLayer';
+import { PieceLayer } from '../layers/PieceLayer';
 import { HEX, FONTS } from '../theme';
+import { useGameStore } from '@/store/gameStore';
 
 /**
  * 実装設計書 4. Phaser シーン構成 - GameScene（メインゲームループ）。
  *
- * 現段階（Step 3）では MapLayer による地図・路線描画までを担当する。
- * 後続ステップで PieceLayer / UILayer / EffectLayer を重ねていく。
+ * MapLayer（地図・路線）の上に PieceLayer（コマ・移動）を重ね、
+ * 都市クリックを移動先選択（Zustand ストア）へ接続する。
  */
 export class GameScene extends Phaser.Scene {
   private mapLayer?: MapLayer;
+  private pieceLayer?: PieceLayer;
 
   constructor() {
     super('GameScene');
@@ -21,14 +24,16 @@ export class GameScene extends Phaser.Scene {
     this.drawTitleWatermark();
 
     this.mapLayer = new MapLayer(this);
+    this.pieceLayer = new PieceLayer(this);
 
-    // 都市クリックは後続ステップでポップアップ表示に接続する
+    // 都市クリック → select フェーズなら移動先として選択（範囲外はストアが無視）
     this.events.on('city:click', (cityId: string) => {
-      // eslint-disable-next-line no-console
-      console.debug('[GameScene] city clicked:', cityId);
+      useGameStore.getState().chooseDestination(cityId);
     });
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.pieceLayer?.destroy();
+      this.pieceLayer = undefined;
       this.mapLayer?.destroy();
       this.mapLayer = undefined;
     });

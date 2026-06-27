@@ -1,17 +1,26 @@
-import type { ReactNode } from 'react';
 import { PhaserContainer } from '@/components/PhaserContainer';
+import { useGameStore, MAX_TURN } from '@/store/gameStore';
+import { CITY_BY_ID } from '@/game/mapData';
 
 /**
- * 実装設計書 3-1 メインゲーム画面レイアウトの React シェル。
+ * 実装設計書 3-1 メインゲーム画面レイアウト + Step 5–6 のゲームループ UI。
  *
- *   ┌ トップバー ───────────────────────────┐
- *   │ マップ(Phaser)          │ 右パネル(HUD)│
- *   └ アクションバー ──────────────────────┘
- *
- * 現段階（Step 1〜3）では Phaser マップ描画が主役。
- * HUD・支店一覧・カード・アクションは後続ステップで中身を実装する。
+ * 上部バー（ターン/景気）、Phaser マップ、右 HUD（プレイヤー資産）、
+ * 下部アクションバー（サイコロ／ターン終了）を Zustand ストアに接続する。
  */
 export default function App() {
+  const turn = useGameStore((s) => s.turn);
+  const phase = useGameStore((s) => s.phase);
+  const dice = useGameStore((s) => s.dice);
+  const players = useGameStore((s) => s.players);
+  const currentPlayerIndex = useGameStore((s) => s.currentPlayerIndex);
+  const optionCount = useGameStore((s) => s.options.length);
+  const rollDice = useGameStore((s) => s.rollDice);
+  const endTurn = useGameStore((s) => s.endTurn);
+
+  const me = players[currentPlayerIndex];
+  const city = CITY_BY_ID[me.position];
+
   return (
     <div className="flex h-full w-full flex-col bg-midnight-navy text-off-white">
       {/* トップバー */}
@@ -21,7 +30,11 @@ export default function App() {
         </h1>
         <div className="flex items-center gap-6 text-sm">
           <span className="font-data text-smoke-gray">
-            ターン <span className="text-off-white">1</span>/100
+            ターン{' '}
+            <span className="text-off-white">
+              {turn}
+            </span>
+            /{MAX_TURN}
           </span>
           <span className="flex items-center gap-2 text-smoke-gray">
             景気
@@ -35,68 +48,137 @@ export default function App() {
 
       {/* 中央：マップ + 右パネル */}
       <div className="flex min-h-0 flex-1">
-        {/* マップエリア（Phaser キャンバス） */}
         <main className="relative min-w-0 flex-1">
           <PhaserContainer />
         </main>
 
-        {/* 右パネル（HUD・支店一覧・カード — 後続ステップ） */}
         <aside className="hidden w-72 shrink-0 flex-col gap-3 border-l border-white/10 p-4 lg:flex">
-          <PanelStub title="プレイヤーHUD">
-            <div className="rounded-lg border border-white/10 bg-map-ground p-3">
-              <div className="text-sm">🏦 あなた</div>
-              <div className="font-data text-lg text-finance-gold">¥—</div>
-              <div className="font-data text-xs text-smoke-gray">借入 ¥—</div>
+          <section>
+            <h2 className="mb-1.5 text-xs font-medium uppercase tracking-wider text-smoke-gray">
+              プレイヤーHUD
+            </h2>
+            <div
+              className="rounded-lg border bg-map-ground p-3"
+              style={{ borderColor: me.color }}
+            >
+              <div className="flex items-center justify-between text-sm">
+                <span>🏦 {me.name}</span>
+                <span className="font-data text-xs text-smoke-gray">
+                  現在地: {city?.name ?? '—'}
+                </span>
+              </div>
+              <div className="font-data text-lg text-finance-gold">
+                {formatMan(me.cash)}
+              </div>
+              <div className="font-data text-xs text-market-red">
+                借入 {formatMan(me.debt)}
+              </div>
             </div>
-          </PanelStub>
-          <PanelStub title="支店一覧">
+          </section>
+
+          <section>
+            <h2 className="mb-1.5 text-xs font-medium uppercase tracking-wider text-smoke-gray">
+              支店一覧
+            </h2>
             <p className="text-xs text-smoke-gray">まだ支店がありません</p>
-          </PanelStub>
-          <PanelStub title="手持ちカード">
+          </section>
+
+          <section>
+            <h2 className="mb-1.5 text-xs font-medium uppercase tracking-wider text-smoke-gray">
+              手持ちカード
+            </h2>
             <p className="text-xs text-smoke-gray">—</p>
-          </PanelStub>
+          </section>
         </aside>
       </div>
 
-      {/* アクションバー（後続ステップで有効化） */}
-      <footer className="flex items-center gap-3 border-t border-white/10 px-5 py-3">
-        <ActionStub label="🎲 サイコロを振る" primary />
-        <ActionStub label="💼 支店強化" />
-        <ActionStub label="🤝 提携交渉" />
+      {/* アクションバー */}
+      <footer className="flex items-center gap-4 border-t border-white/10 px-5 py-3">
+        <DiceButton phase={phase} dice={dice} onRoll={rollDice} />
+
+        <StatusLine phase={phase} dice={dice} optionCount={optionCount} />
+
+        <div className="ml-auto flex items-center gap-3">
+          <button
+            type="button"
+            disabled={phase !== 'action'}
+            onClick={endTurn}
+            className={
+              phase === 'action'
+                ? 'rounded-lg bg-finance-gold px-4 py-2 text-sm font-bold text-midnight-navy transition hover:brightness-110'
+                : 'cursor-not-allowed rounded-lg border border-white/15 px-4 py-2 text-sm text-off-white opacity-40'
+            }
+          >
+            ターン終了 ▶
+          </button>
+        </div>
       </footer>
     </div>
   );
 }
 
-function PanelStub({
-  title,
-  children,
+/** サイコロボタン。roll フェーズのみ有効。出目を表示する。 */
+function DiceButton({
+  phase,
+  dice,
+  onRoll,
 }: {
-  title: string;
-  children: ReactNode;
+  phase: string;
+  dice: number | null;
+  onRoll: () => void;
 }) {
-  return (
-    <section>
-      <h2 className="mb-1.5 text-xs font-medium uppercase tracking-wider text-smoke-gray">
-        {title}
-      </h2>
-      {children}
-    </section>
-  );
-}
-
-function ActionStub({ label, primary }: { label: string; primary?: boolean }) {
+  const enabled = phase === 'roll';
   return (
     <button
       type="button"
-      disabled
+      disabled={!enabled}
+      onClick={onRoll}
       className={
-        primary
-          ? 'cursor-not-allowed rounded-lg bg-finance-gold/90 px-4 py-2 text-sm font-bold text-midnight-navy opacity-60'
-          : 'cursor-not-allowed rounded-lg border border-white/15 px-4 py-2 text-sm text-off-white opacity-50'
+        enabled
+          ? 'rounded-lg bg-finance-gold px-4 py-2 text-sm font-bold text-midnight-navy transition hover:brightness-110'
+          : 'cursor-not-allowed rounded-lg bg-finance-gold/90 px-4 py-2 text-sm font-bold text-midnight-navy opacity-50'
       }
     >
-      {label}
+      🎲 サイコロを振る
+      {dice != null && (
+        <span className="font-data ml-2 rounded bg-midnight-navy/30 px-1.5">
+          {dice}
+        </span>
+      )}
     </button>
   );
+}
+
+/** フェーズに応じた案内テキスト。 */
+function StatusLine({
+  phase,
+  dice,
+  optionCount,
+}: {
+  phase: string;
+  dice: number | null;
+  optionCount: number;
+}) {
+  let text = '';
+  switch (phase) {
+    case 'roll':
+      text = 'サイコロを振って移動しよう';
+      break;
+    case 'select':
+      text = `${dice} が出た！ 光っている都市（${optionCount}）から移動先を選択`;
+      break;
+    case 'moving':
+      text = '移動中…';
+      break;
+    case 'action':
+      text = '到着！ ターンを終了して次へ';
+      break;
+  }
+  return <span className="text-sm text-smoke-gray">{text}</span>;
+}
+
+/** 円を「万」単位で表示（証券画面風にモノスペース）。 */
+function formatMan(yen: number): string {
+  const man = Math.round(yen / 10000);
+  return `¥${man.toLocaleString('ja-JP')}万`;
 }

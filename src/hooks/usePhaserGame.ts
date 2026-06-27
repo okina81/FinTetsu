@@ -20,6 +20,11 @@ export function usePhaserGame<T extends HTMLElement = HTMLDivElement>() {
     // すでに生成済みなら再生成しない（StrictMode の二重実行対策）
     if (!gameRef.current) {
       gameRef.current = createGame(parent);
+      // 開発時のみ：デバッグ／自動テスト用に Phaser.Game を公開する
+      if (import.meta.env.DEV) {
+        (window as unknown as { __phaserGame?: Phaser.Game }).__phaserGame =
+          gameRef.current;
+      }
     }
 
     return () => {
