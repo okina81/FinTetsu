@@ -33,9 +33,9 @@ npm run lint     # tsc 型チェックのみ
 - [x] **Step 1** Vite + React + TypeScript プロジェクト作成
 - [x] **Step 2** Phaser 3 を React に埋め込む（`usePhaserGame` hook）
 - [x] **Step 3** MapLayer で都市ノード＋路線を描画（ネオングロウ込み）
+- [x] **Step 5** Zustand でゲーム状態の骨格（`store/gameStore.ts`）
+- [x] **Step 6** サイコロ → コマ移動ループ（`PieceLayer` + `pathfind`）
 - [ ] Step 4 ネオングロウの拡張（自支店路線の色染め）
-- [ ] Step 5 Zustand でゲーム状態の骨格
-- [ ] Step 6 サイコロ → コマ移動ループ
 - [ ] Step 7 支店設立・手数料徴収
 - [ ] Step 8 React サイドパネル（HUD・資産表示）
 - [ ] Step 9 イベントカードシステム

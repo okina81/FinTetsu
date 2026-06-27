@@ -30,4 +30,22 @@ export type Route = {
 
 export type BankType = 'regional' | 'mega' | 'net' | 'credit-union';
 
-export type GamePhase = 'roll' | 'move' | 'action' | 'event' | 'end';
+/**
+ * ターンのフェーズ。
+ *   roll     : サイコロ待ち
+ *   select   : 出目が確定し、移動先の選択待ち（分岐ハイライト中）
+ *   moving   : コマがアニメーション移動中
+ *   action   : 到着後の行動（支店設立など）— 現状は確認のみ
+ */
+export type GamePhase = 'roll' | 'select' | 'moving' | 'action';
+
+export type Player = {
+  id: string;
+  name: string;
+  /** 表示色（プレイヤー1〜4: 青・赤・緑・橙）。CSS 文字列。 */
+  color: string;
+  /** 現在地（cityId）。 */
+  position: string;
+  cash: number;
+  debt: number;
+};
