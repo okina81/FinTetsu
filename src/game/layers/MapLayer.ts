@@ -155,30 +155,82 @@ export class MapLayer {
 
   private drawLabel(city: City): void {
     const r = MapLayer.NODE_RADIUS;
+    const layout = this.labelLayout(city.x, city.y, r, city.labelPos);
 
-    const name = this.scene.add.text(city.x, city.y + r + 6, city.name, {
+    const name = this.scene.add.text(layout.x, layout.nameY, city.name, {
       fontFamily: FONTS.display,
-      fontSize: '18px',
+      fontSize: '17px',
       color: '#e8eaf0',
       fontStyle: 'bold',
     });
-    name.setOrigin(0.5, 0);
+    name.setOrigin(layout.originX, layout.originY);
     name.setShadow(0, 0, '#0a0e1a', 6, true, true);
 
     const type = this.scene.add.text(
-      city.x,
-      city.y + r + 28,
+      layout.x,
+      layout.typeY,
       CITY_TYPE_LABEL[city.type] ?? '',
       {
         fontFamily: FONTS.sans,
-        fontSize: '11px',
+        fontSize: '10px',
         color: '#7b8499',
       },
     );
-    type.setOrigin(0.5, 0);
+    type.setOrigin(layout.originX, layout.originY);
+    type.setShadow(0, 0, '#0a0e1a', 5, true, true);
 
     this.container.add(name);
     this.container.add(type);
+  }
+
+  /** ラベルの配置（方向）を計算する。name と type を 2 行で重ねる。 */
+  private labelLayout(
+    x: number,
+    y: number,
+    r: number,
+    pos: City['labelPos'],
+  ): {
+    x: number;
+    nameY: number;
+    typeY: number;
+    originX: number;
+    originY: number;
+  } {
+    switch (pos) {
+      case 'above':
+        return {
+          x,
+          nameY: y - r - 20,
+          typeY: y - r - 6,
+          originX: 0.5,
+          originY: 0,
+        };
+      case 'right':
+        return {
+          x: x + r + 6,
+          nameY: y - 10,
+          typeY: y + 6,
+          originX: 0,
+          originY: 0,
+        };
+      case 'left':
+        return {
+          x: x - r - 6,
+          nameY: y - 10,
+          typeY: y + 6,
+          originX: 1,
+          originY: 0,
+        };
+      case 'below':
+      default:
+        return {
+          x,
+          nameY: y + r + 5,
+          typeY: y + r + 23,
+          originX: 0.5,
+          originY: 0,
+        };
+    }
   }
 
   /**
