@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { useGameStore, MAX_TURN } from './gameStore';
+import { useGameStore, MAX_TURN, economyMultiplier } from './gameStore';
 import { BRANCH_SPECS } from '@/game/branchSpec';
 
 const s = () => useGameStore.getState();
@@ -158,5 +158,71 @@ describe('gameStore — 勝敗', () => {
     s().endTurn();
     expect(s().phase).toBe('gameover');
     expect(s().winnerId).toBe('p3');
+  });
+});
+
+describe('gameStore — 景気・地域育成', () => {
+  beforeEach(() => s().reset());
+  afterEach(() => vi.restoreAllMocks());
+
+  it('景気倍率：不況0.8 / 普通1.0 / 好況1.2', () => {
+    expect(economyMultiplier(1)).toBe(0.8);
+    expect(economyMultiplier(2)).toBe(0.8);
+    expect(economyMultiplier(3)).toBe(1.0);
+    expect(economyMultiplier(4)).toBe(1.2);
+    expect(economyMultiplier(5)).toBe(1.2);
+  });
+
+  it('好況だと収益が +20%', () => {
+    useGameStore.setState({
+      phase: 'action',
+      economy: 4,
+      branches: { osaka: { ownerId: 'p1', level: 3 } },
+    });
+    const before = s().players[0].cash;
+    s().endTurn();
+    expect(s().players[0].cash).toBe(
+      before + Math.round(BRANCH_SPECS[3].revenue * 1.2),
+    );
+  });
+
+  it('地域育成の段数だけ収益がブーストされる', () => {
+    useGameStore.setState({
+      phase: 'action',
+      economy: 3,
+      branches: { osaka: { ownerId: 'p1', level: 2 } },
+      develop: { osaka: 2 }, // +30%
+    });
+    const before = s().players[0].cash;
+    s().endTurn();
+    expect(s().players[0].cash).toBe(
+      before + Math.round(BRANCH_SPECS[2].revenue * 1.3),
+    );
+  });
+
+  it('developCity：自支店のある都市で費用を払い段数+1', () => {
+    useGameStore.setState({
+      phase: 'action',
+      branches: { tokyo: { ownerId: 'p1', level: 1 } },
+      players: s().players.map((p) =>
+        p.id === 'p1' ? { ...p, position: 'tokyo' } : p,
+      ),
+    });
+    const before = s().players[0].cash;
+    s().developCity();
+    expect(s().develop.tokyo).toBe(1);
+    expect(s().players[0].cash).toBe(before - 1_000_000);
+  });
+
+  it('developCity：他人/未所有の都市では不可', () => {
+    useGameStore.setState({
+      phase: 'action',
+      branches: { tokyo: { ownerId: 'p2', level: 1 } },
+      players: s().players.map((p) =>
+        p.id === 'p1' ? { ...p, position: 'tokyo' } : p,
+      ),
+    });
+    s().developCity();
+    expect(s().develop.tokyo).toBeUndefined();
   });
 });

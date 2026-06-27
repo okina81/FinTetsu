@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { PhaserContainer } from '@/components/PhaserContainer';
-import { useGameStore, MAX_TURN, formatMan } from '@/store/gameStore';
+import {
+  useGameStore,
+  MAX_TURN,
+  formatMan,
+  economyLabel,
+} from '@/store/gameStore';
 import { useCpuController } from '@/hooks/useCpuController';
 import { CITY_BY_ID } from '@/game/mapData';
 import { BRANCH_SPECS } from '@/game/branchSpec';
@@ -19,6 +24,7 @@ export default function App() {
   const phase = useGameStore((s) => s.phase);
   const players = useGameStore((s) => s.players);
   const branches = useGameStore((s) => s.branches);
+  const develop = useGameStore((s) => s.develop);
   const currentPlayerIndex = useGameStore((s) => s.currentPlayerIndex);
   const totalAssets = useGameStore((s) => s.totalAssets);
   const started = useGameStore((s) => s.started);
@@ -34,13 +40,7 @@ export default function App() {
           <span className="font-data text-smoke-gray">
             ターン <span className="text-off-white">{turn}</span>/{MAX_TURN}
           </span>
-          <span className="flex items-center gap-2 text-smoke-gray">
-            景気
-            <span className="font-data tracking-widest text-telegraph-blue">
-              ███░░
-            </span>
-            <span className="text-off-white">普通</span>
-          </span>
+          <EconomyGauge />
         </div>
       </header>
 
@@ -67,7 +67,7 @@ export default function App() {
             </div>
           </section>
 
-          <BranchList ownerId="p1" branches={branches} />
+          <BranchList ownerId="p1" branches={branches} develop={develop} />
         </aside>
       </div>
 
@@ -124,9 +124,11 @@ function PlayerCard({
 function BranchList({
   ownerId,
   branches,
+  develop,
 }: {
   ownerId: string;
   branches: Record<string, { ownerId: string; level: 1 | 2 | 3 | 4 | 5 }>;
+  develop: Record<string, number>;
 }) {
   const owned = Object.entries(branches).filter(
     ([, b]) => b.ownerId === ownerId,
@@ -152,6 +154,11 @@ function BranchList({
                   <span className="text-smoke-gray">
                     Lv{b.level} {spec.name}
                   </span>
+                  {develop[cid] > 0 && (
+                    <span className="ml-1 text-player-3">
+                      {'🌱'.repeat(Math.min(develop[cid], 3))}
+                    </span>
+                  )}
                 </span>
                 <span className="font-data text-finance-gold">
                   {formatMan(spec.revenue)}/T
@@ -176,6 +183,7 @@ function ActionBar() {
   const endTurn = useGameStore((s) => s.endTurn);
   const buildBranch = useGameStore((s) => s.buildBranch);
   const upgradeBranch = useGameStore((s) => s.upgradeBranch);
+  const developCity = useGameStore((s) => s.developCity);
   const actionAt = useGameStore((s) => s.actionAt);
 
   const me = players[currentPlayerIndex];
@@ -207,6 +215,11 @@ function ActionBar() {
           ⬆️ 支店を強化 {formatMan(a.upgradeCost)}
         </button>
       )}
+      {isHuman && phase === 'action' && a.canDevelop && (
+        <button type="button" onClick={developCity} className={ghost}>
+          🌱 地域育成 {formatMan(a.developCost)}
+        </button>
+      )}
 
       <span className="min-w-0 flex-1 truncate text-sm text-smoke-gray">
         {me?.isCpu && phase !== 'gameover' ? `🤖 ${me.name} 思考中…` : message}
@@ -221,6 +234,28 @@ function ActionBar() {
         ターン終了 ▶
       </button>
     </footer>
+  );
+}
+
+/** 景気ゲージ（1 不況 〜 5 好況）。収益への影響を色で示す。 */
+function EconomyGauge() {
+  const economy = useGameStore((s) => s.economy);
+  const label = economyLabel(economy);
+  const color =
+    economy <= 2
+      ? 'text-market-red'
+      : economy >= 4
+        ? 'text-player-3'
+        : 'text-telegraph-blue';
+  return (
+    <span className="flex items-center gap-2 text-smoke-gray">
+      景気
+      <span className={`font-data tracking-widest ${color}`}>
+        {'█'.repeat(economy)}
+        {'░'.repeat(5 - economy)}
+      </span>
+      <span className="text-off-white">{label}</span>
+    </span>
   );
 }
 

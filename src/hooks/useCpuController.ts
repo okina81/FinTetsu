@@ -73,7 +73,7 @@ function pickDestination(
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
-/** CPU の到着後行動：建てられるなら建て、強化できるなら時々強化。 */
+/** CPU の到着後行動：建てる→強化→地域育成の順で、資金に応じて選ぶ。 */
 function decideAction(s: ReturnType<typeof useGameStore.getState>): void {
   const me = s.players[s.currentPlayerIndex];
   const a = s.actionAt(me.id);
@@ -81,5 +81,7 @@ function decideAction(s: ReturnType<typeof useGameStore.getState>): void {
     s.buildBranch();
   } else if (a.canUpgrade && Math.random() < 0.6) {
     s.upgradeBranch();
+  } else if (a.canDevelop && Math.random() < 0.4) {
+    s.developCity();
   }
 }
