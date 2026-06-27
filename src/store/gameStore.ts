@@ -1,14 +1,18 @@
 import { create } from 'zustand';
 import type { Branch, GamePhase, Player } from '@/game/types';
 import { reachableDestinations, type MoveOption } from '@/game/pathfind';
-import { CITY_BY_ID } from '@/game/mapData';
-import { PLAYER_COLORS } from '@/game/theme';
+import { CITY_BY_ID, CITIES } from '@/game/mapData';
+import { PLAYER_COLORS, CITY_TYPE_LABEL } from '@/game/theme';
 import {
   BRANCH_SPECS,
   MAX_BRANCH_LEVEL,
   branchValue,
   upgradeCost,
 } from '@/game/branchSpec';
+import { drawEventCard, type EventCard } from '@/game/eventCards';
+
+/** 到着時にイベントカードを引く確率（手数料を払うマスを除く）。 */
+const EVENT_CHANCE = 0.4;
 
 /**
  * 実装設計書 5 / Step 5–7。
@@ -100,6 +104,8 @@ export type GameStore = {
   economy: EconomyLevel;
   /** 都市 id -> 地域育成（産業育成）の段数。収益ブースト。 */
   develop: Record<string, number>;
+  /** 到着時に引いたイベントカード（演出中のみ非 null）。 */
+  activeCard: EventCard | null;
   /** 直近の出来事（ステータス表示用）。 */
   message: string;
   /** ゲーム終了時の勝者 id。 */
@@ -116,6 +122,8 @@ export type GameStore = {
   upgradeBranch: () => void;
   /** 現在地の自支店に地域育成（産業育成）を行う。 */
   developCity: () => void;
+  /** 引いたイベントカードの効果を適用し、行動フェーズへ進む。 */
+  applyEventCard: () => void;
   endTurn: () => void;
   reset: () => void;
 
@@ -144,6 +152,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   branches: {},
   economy: 3,
   develop: {},
+  activeCard: null,
   message: 'サイコロを振って移動しよう',
   winnerId: null,
   started: false,
@@ -186,7 +195,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     // 他プレイヤーの支店に止まったら利用料を支払う
     const branch = branches[dest];
-    if (branch && branch.ownerId !== me.id) {
+    const paysFee = !!branch && branch.ownerId !== me.id;
+    if (paysFee && branch) {
       const fee = BRANCH_SPECS[branch.level].fee;
       players2 = players2.map((p) => {
         if (p.id === me.id) return { ...p, cash: p.cash - fee };
@@ -197,7 +207,68 @@ export const useGameStore = create<GameStore>((set, get) => ({
       message = `${me.name} は ${cityName} で利用料 ${formatMan(fee)} を ${owner?.name ?? ''} に支払った`;
     }
 
+    // 手数料マス以外では一定確率でイベントカードを引く（イベントマス相当）
+    if (!paysFee && Math.random() < EVENT_CHANCE) {
+      const card = drawEventCard();
+      set({
+        players: players2,
+        pendingMove: null,
+        phase: 'event',
+        activeCard: card,
+        message: `${me.name} は ${cityName} でカードを引いた`,
+      });
+      return;
+    }
+
     set({ players: players2, pendingMove: null, phase: 'action', message });
+  },
+
+  applyEventCard: () => {
+    const { phase, activeCard, players, currentPlayerIndex, economy, develop } =
+      get();
+    if (phase !== 'event' || !activeCard) return;
+    const me = players[currentPlayerIndex];
+    const effect = activeCard.effect;
+
+    let players2 = players;
+    let nextEconomy = economy;
+    let nextDevelop = develop;
+    let detail = '';
+
+    switch (effect.kind) {
+      case 'cash':
+        players2 = players.map((p, i) =>
+          i === currentPlayerIndex ? { ...p, cash: p.cash + effect.amount } : p,
+        );
+        detail = `${me.name} の現金 ${effect.amount >= 0 ? '+' : '−'}${formatMan(Math.abs(effect.amount))}`;
+        break;
+      case 'economy':
+        nextEconomy = clampEconomy(economy + effect.delta);
+        detail = `景気 → ${economyLabel(nextEconomy)}`;
+        break;
+      case 'cityDevelop': {
+        nextDevelop = { ...develop };
+        for (const city of CITIES) {
+          if (city.type === effect.cityType) {
+            nextDevelop[city.id] = Math.max(
+              0,
+              (nextDevelop[city.id] ?? 0) + effect.delta,
+            );
+          }
+        }
+        detail = `${CITY_TYPE_LABEL[effect.cityType]}の収益が${effect.delta >= 0 ? '上昇' : '低下'}`;
+        break;
+      }
+    }
+
+    set({
+      players: players2,
+      economy: nextEconomy,
+      develop: nextDevelop,
+      activeCard: null,
+      phase: 'action',
+      message: `🃏 ${activeCard.title}：${detail}`,
+    });
   },
 
   buildBranch: () => {
@@ -353,6 +424,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       branches: {},
       economy: 3,
       develop: {},
+      activeCard: null,
       message: 'サイコロを振って移動しよう',
       winnerId: null,
       started: true, // リプレイはタイトルを経由せず即開始

@@ -39,6 +39,12 @@ export function useCpuController(): void {
           const dest = pickDestination(st);
           if (dest) st.chooseDestination(dest);
         }, SELECT_MS);
+      } else if (s.phase === 'event') {
+        // イベントカードを自動で確認して効果を適用
+        timer = setTimeout(
+          () => useGameStore.getState().applyEventCard(),
+          ACTION_MS,
+        );
       } else if (s.phase === 'action') {
         timer = setTimeout(() => {
           const st = useGameStore.getState();
