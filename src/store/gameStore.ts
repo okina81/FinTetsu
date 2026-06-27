@@ -22,6 +22,29 @@ const MAX_TURN = 100;
 const START_CASH = 3_000_000; // 地方銀行スタート（300万）
 const VICTORY_ASSETS = 100_000_000; // 特殊勝利：総資産1億円
 
+/** 地域育成「産業育成」1 回の費用（100万）。 */
+const DEVELOP_COST = 1_000_000;
+/** 産業育成 1 段ごとの収益ブースト（+15%）。 */
+const DEVELOP_BONUS = 0.15;
+
+export type EconomyLevel = 1 | 2 | 3 | 4 | 5;
+
+/** 景気レベルごとの収益倍率（設計書 6-2：不況 -20% / 普通 / 好況 +20%）。 */
+export function economyMultiplier(economy: EconomyLevel): number {
+  if (economy <= 2) return 0.8;
+  if (economy >= 4) return 1.2;
+  return 1.0;
+}
+
+export function economyLabel(economy: EconomyLevel): string {
+  if (economy <= 2) return '不況';
+  if (economy >= 4) return '好況';
+  return '普通';
+}
+
+const clampEconomy = (n: number): EconomyLevel =>
+  Math.max(1, Math.min(5, n)) as EconomyLevel;
+
 /** プレイヤー初期配置（人間1 + CPU3）。開始都市は散らす。 */
 const PLAYER_SEED: Array<Pick<Player, 'id' | 'name' | 'isCpu' | 'position'>> = [
   { id: 'p1', name: 'あなた', isCpu: false, position: 'tokyo' },
@@ -49,6 +72,20 @@ function assetsOf(player: Player, branches: Record<string, Branch>): number {
   return value;
 }
 
+/**
+ * 1 支店のターン収益（景気・地域育成を反映）。
+ * 収益 = 基本収益 × 景気倍率 × (1 + 育成段数 × ボーナス)。
+ */
+function branchRevenue(
+  level: 1 | 2 | 3 | 4 | 5,
+  economy: EconomyLevel,
+  developLevel: number,
+): number {
+  const base = BRANCH_SPECS[level].revenue;
+  const mult = economyMultiplier(economy) * (1 + developLevel * DEVELOP_BONUS);
+  return Math.round(base * mult);
+}
+
 export type GameStore = {
   turn: number;
   phase: GamePhase;
@@ -59,6 +96,10 @@ export type GameStore = {
   pendingMove: MoveOption | null;
   /** 都市 id -> 支店。未所有は未登録。 */
   branches: Record<string, Branch>;
+  /** 景気レベル（1 不況 〜 5 好況）。収益に影響。 */
+  economy: EconomyLevel;
+  /** 都市 id -> 地域育成（産業育成）の段数。収益ブースト。 */
+  develop: Record<string, number>;
   /** 直近の出来事（ステータス表示用）。 */
   message: string;
   /** ゲーム終了時の勝者 id。 */
@@ -73,18 +114,22 @@ export type GameStore = {
   completeMove: () => void;
   buildBranch: () => void;
   upgradeBranch: () => void;
+  /** 現在地の自支店に地域育成（産業育成）を行う。 */
+  developCity: () => void;
   endTurn: () => void;
   reset: () => void;
 
   // --- セレクタ ---
   currentPlayer: () => Player;
   totalAssets: (playerId: string) => number;
-  /** 現在地で人間が取れる行動（build / upgrade 可否）。 */
+  /** 現在地で人間が取れる行動（build / upgrade / develop 可否）。 */
   actionAt: (playerId: string) => {
     canBuild: boolean;
     canUpgrade: boolean;
+    canDevelop: boolean;
     buildCost: number;
     upgradeCost: number;
+    developCost: number;
   };
 };
 
@@ -97,6 +142,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   options: [],
   pendingMove: null,
   branches: {},
+  economy: 3,
+  develop: {},
   message: 'サイコロを振って移動しよう',
   winnerId: null,
   started: false,
@@ -191,16 +238,46 @@ export const useGameStore = create<GameStore>((set, get) => ({
     });
   },
 
+  developCity: () => {
+    const { phase, players, currentPlayerIndex, branches, develop } = get();
+    if (phase !== 'action') return;
+    const me = players[currentPlayerIndex];
+    const cid = me.position;
+    const b = branches[cid];
+    if (!b || b.ownerId !== me.id) return; // 自支店のある都市のみ育成可
+    if (me.cash < DEVELOP_COST) return;
+    const cityName = CITY_BY_ID[cid]?.name ?? cid;
+    set({
+      players: players.map((p, i) =>
+        i === currentPlayerIndex ? { ...p, cash: p.cash - DEVELOP_COST } : p,
+      ),
+      develop: { ...develop, [cid]: (develop[cid] ?? 0) + 1 },
+      message: `${me.name} は ${cityName} の産業を育成（${formatMan(DEVELOP_COST)}）→ 収益UP`,
+    });
+  },
+
   endTurn: () => {
-    const { phase, players, currentPlayerIndex, branches, turn } = get();
+    const {
+      phase,
+      players,
+      currentPlayerIndex,
+      branches,
+      turn,
+      economy,
+      develop,
+    } = get();
     if (phase !== 'action') return;
     const me = players[currentPlayerIndex];
 
-    // 収益：自分の全支店の収益を回収
+    // 収益：自分の全支店の収益を回収（景気・地域育成を反映）
     let revenue = 0;
     for (const cid in branches) {
       if (branches[cid].ownerId === me.id) {
-        revenue += BRANCH_SPECS[branches[cid].level].revenue;
+        revenue += branchRevenue(
+          branches[cid].level,
+          economy,
+          develop[cid] ?? 0,
+        );
       }
     }
     const players2 = players.map((p, i) =>
@@ -209,6 +286,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     const nextIndex = (currentPlayerIndex + 1) % players2.length;
     const nextTurn = nextIndex === 0 ? turn + 1 : turn;
+
+    // 新しいラウンドの頭で景気がランダムに変動（不況↔好況）
+    let nextEconomy = economy;
+    if (nextIndex === 0) {
+      const drift = Math.floor(Math.random() * 3) - 1; // -1 / 0 / +1
+      nextEconomy = clampEconomy(economy + drift);
+    }
 
     // 勝敗判定
     const argmax = players2.reduce((best, p) =>
@@ -238,17 +322,22 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
 
     const next = players2[nextIndex];
+    const econMsg =
+      nextEconomy !== economy
+        ? `［景気${nextEconomy > economy ? '上昇' : '悪化'}→${economyLabel(nextEconomy)}］ `
+        : '';
     set({
       players: players2,
       currentPlayerIndex: nextIndex,
       turn: nextTurn,
+      economy: nextEconomy,
       dice: null,
       options: [],
       phase: 'roll',
       message:
-        revenue > 0
+        (revenue > 0
           ? `${me.name} は収益 ${formatMan(revenue)} を獲得 → ${next.name} の番`
-          : `${next.name} の番`,
+          : `${next.name} の番`) + (econMsg ? ` ${econMsg}` : ''),
     });
   },
 
@@ -262,6 +351,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       options: [],
       pendingMove: null,
       branches: {},
+      economy: 3,
+      develop: {},
       message: 'サイコロを振って移動しよう',
       winnerId: null,
       started: true, // リプレイはタイトルを経由せず即開始
@@ -285,22 +376,23 @@ export const useGameStore = create<GameStore>((set, get) => ({
       return {
         canBuild: false,
         canUpgrade: false,
+        canDevelop: false,
         buildCost: 0,
         upgradeCost: 0,
+        developCost: 0,
       };
     }
     const b = branches[p.position];
     const buildCost = BRANCH_SPECS[1].cost;
     const upCost = b ? upgradeCost(b.level) : 0;
+    const ownsHere = !!b && b.ownerId === p.id;
     return {
       canBuild: !b && p.cash >= buildCost,
-      canUpgrade:
-        !!b &&
-        b.ownerId === p.id &&
-        b.level < MAX_BRANCH_LEVEL &&
-        p.cash >= upCost,
+      canUpgrade: ownsHere && b!.level < MAX_BRANCH_LEVEL && p.cash >= upCost,
+      canDevelop: ownsHere && p.cash >= DEVELOP_COST,
       buildCost,
       upgradeCost: upCost,
+      developCost: DEVELOP_COST,
     };
   },
 }));
