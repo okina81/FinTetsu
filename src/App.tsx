@@ -7,6 +7,7 @@ import {
   economyLabel,
 } from '@/store/gameStore';
 import { useCpuController } from '@/hooks/useCpuController';
+import { useAudio } from '@/hooks/useAudio';
 import { useSettingsStore, GAME_SPEEDS } from '@/store/settingsStore';
 import { CITY_BY_ID } from '@/game/mapData';
 import { BRANCH_SPECS } from '@/game/branchSpec';
@@ -20,6 +21,7 @@ import type { Player } from '@/game/types';
  */
 export default function App() {
   useCpuController();
+  useAudio();
 
   const turn = useGameStore((s) => s.turn);
   const phase = useGameStore((s) => s.phase);

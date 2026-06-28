@@ -13,6 +13,7 @@ import { useGameStore } from '@/store/gameStore';
 export class GameScene extends Phaser.Scene {
   private mapLayer?: MapLayer;
   private pieceLayer?: PieceLayer;
+  private unsubscribe?: () => void;
 
   constructor() {
     super('GameScene');
@@ -31,7 +32,26 @@ export class GameScene extends Phaser.Scene {
       useGameStore.getState().chooseDestination(cityId);
     });
 
+    // ジュース：手数料・イベント・終了でカメラを軽く揺らす
+    let prevPhase = useGameStore.getState().phase;
+    this.unsubscribe = useGameStore.subscribe((s) => {
+      if (s.phase !== prevPhase) {
+        if (s.phase === 'event') this.cameras.main.shake(180, 0.006);
+        else if (s.phase === 'gameover') this.cameras.main.shake(400, 0.01);
+        else if (
+          prevPhase === 'moving' &&
+          s.phase === 'action' &&
+          s.message.includes('利用料')
+        ) {
+          this.cameras.main.shake(220, 0.008);
+        }
+        prevPhase = s.phase;
+      }
+    });
+
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.unsubscribe?.();
+      this.unsubscribe = undefined;
       this.pieceLayer?.destroy();
       this.pieceLayer = undefined;
       this.mapLayer?.destroy();
