@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useGameStore } from '@/store/gameStore';
+import { useSettingsStore } from '@/store/settingsStore';
 
 /**
  * CPU プレイヤーの自動操作を駆動する。
@@ -16,10 +17,7 @@ export function useCpuController(): void {
     let timer: ReturnType<typeof setTimeout> | undefined;
     let handledKey = '';
 
-    const ROLL_MS = 550;
-    const SELECT_MS = 650;
-    const ACTION_MS = 750;
-    const ENDTURN_MS = 650;
+    const BASE = { roll: 550, select: 650, action: 750, endTurn: 650 };
 
     const handle = () => {
       const s = useGameStore.getState();
@@ -30,6 +28,13 @@ export function useCpuController(): void {
       if (key === handledKey) return; // 同一フェーズの二重発火を防ぐ
       if (s.phase === 'moving') return; // アニメ中は介入しない
       handledKey = key;
+
+      // ゲーム速度で思考時間を短縮
+      const speed = useSettingsStore.getState().gameSpeed || 1;
+      const ROLL_MS = BASE.roll / speed;
+      const SELECT_MS = BASE.select / speed;
+      const ACTION_MS = BASE.action / speed;
+      const ENDTURN_MS = BASE.endTurn / speed;
 
       if (s.phase === 'roll') {
         timer = setTimeout(() => useGameStore.getState().rollDice(), ROLL_MS);

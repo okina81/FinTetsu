@@ -288,3 +288,42 @@ describe('gameStore — イベントカード', () => {
     expect(s().develop.kyoto).toBe(1);
   });
 });
+
+describe('gameStore — セーブ / ロード', () => {
+  beforeEach(() => s().reset());
+  afterEach(() => {
+    s().clearSavedGame();
+    vi.restoreAllMocks();
+  });
+
+  it('saveGame → loadGame で局面を復元し roll から再開する', () => {
+    useGameStore.setState({
+      turn: 7,
+      economy: 5,
+      currentPlayerIndex: 2,
+      branches: { osaka: { ownerId: 'p1', level: 3 } },
+      develop: { osaka: 2 },
+    });
+    s().saveGame();
+
+    s().reset(); // 一旦まっさら
+    expect(s().turn).toBe(1);
+    expect(s().branches.osaka).toBeUndefined();
+
+    expect(s().loadGame()).toBe(true);
+    expect(s().turn).toBe(7);
+    expect(s().economy).toBe(5);
+    expect(s().currentPlayerIndex).toBe(2);
+    expect(s().branches.osaka).toEqual({ ownerId: 'p1', level: 3 });
+    expect(s().develop.osaka).toBe(2);
+    expect(s().phase).toBe('roll');
+  });
+
+  it('hasSavedGame / clearSavedGame', () => {
+    s().saveGame();
+    expect(s().hasSavedGame()).toBe(true);
+    s().clearSavedGame();
+    expect(s().hasSavedGame()).toBe(false);
+    expect(s().loadGame()).toBe(false);
+  });
+});

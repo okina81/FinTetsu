@@ -3,6 +3,7 @@ import { CITY_BY_ID } from '../mapData';
 import { HEX } from '../theme';
 import { useGameStore } from '@/store/gameStore';
 import type { GameStore } from '@/store/gameStore';
+import { useSettingsStore } from '@/store/settingsStore';
 
 /**
  * 実装設計書 4. PieceLayer — プレイヤーのコマ管理。
@@ -199,11 +200,12 @@ export class PieceLayer {
         useGameStore.getState().completeMove();
         return;
       }
+      const speed = useSettingsStore.getState().gameSpeed || 1;
       this.scene.tweens.add({
         targets: token,
         x: segments[i].x,
         y: segments[i].y,
-        duration: PieceLayer.STEP_MS,
+        duration: PieceLayer.STEP_MS / speed,
         ease: 'Sine.inOut',
         onComplete: () => step(i + 1),
       });

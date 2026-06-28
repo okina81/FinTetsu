@@ -7,6 +7,7 @@ import {
   economyLabel,
 } from '@/store/gameStore';
 import { useCpuController } from '@/hooks/useCpuController';
+import { useSettingsStore, GAME_SPEEDS } from '@/store/settingsStore';
 import { CITY_BY_ID } from '@/game/mapData';
 import { BRANCH_SPECS } from '@/game/branchSpec';
 import type { Player } from '@/game/types';
@@ -29,6 +30,8 @@ export default function App() {
   const totalAssets = useGameStore((s) => s.totalAssets);
   const started = useGameStore((s) => s.started);
 
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
   return (
     <div className="flex h-full w-full flex-col bg-midnight-navy text-off-white">
       {/* トップバー */}
@@ -36,11 +39,19 @@ export default function App() {
         <h1 className="font-display text-xl font-bold text-finance-gold">
           FinTetsu<span className="ml-2 text-sm text-smoke-gray">フィン鉄</span>
         </h1>
-        <div className="flex items-center gap-6 text-sm">
+        <div className="flex items-center gap-5 text-sm">
           <span className="font-data text-smoke-gray">
             ターン <span className="text-off-white">{turn}</span>/{MAX_TURN}
           </span>
           <EconomyGauge />
+          <button
+            type="button"
+            aria-label="設定"
+            onClick={() => setSettingsOpen(true)}
+            className="rounded-md border border-white/15 px-2 py-1 text-off-white transition hover:bg-white/10"
+          >
+            ⚙
+          </button>
         </div>
       </header>
 
@@ -76,6 +87,7 @@ export default function App() {
       {phase === 'event' && <EventModal />}
       {phase === 'gameover' && <ResultOverlay />}
       {!started && <TitleOverlay />}
+      {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
     </div>
   );
 }
@@ -382,6 +394,10 @@ function DiceButton({
 /** タイトル画面。ゲーム開始までマップ上に重ねる。 */
 function TitleOverlay() {
   const startGame = useGameStore((s) => s.startGame);
+  const loadGame = useGameStore((s) => s.loadGame);
+  const hasSavedGame = useGameStore((s) => s.hasSavedGame);
+  const canResume = hasSavedGame();
+
   return (
     <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-midnight-navy/85 backdrop-blur-sm">
       <p className="mb-2 font-data text-xs tracking-[0.3em] text-telegraph-blue">
@@ -396,17 +412,165 @@ function TitleOverlay() {
         <br />
         地域経済を育て、資産日本一を目指せ。
       </p>
-      <button
-        type="button"
-        onClick={startGame}
-        className="mt-8 rounded-xl bg-finance-gold px-8 py-3 text-base font-bold text-midnight-navy shadow-lg transition hover:brightness-110"
-      >
-        ゲーム開始 ▶
-      </button>
+      <div className="mt-8 flex flex-col items-center gap-3">
+        <button
+          type="button"
+          onClick={startGame}
+          className="rounded-xl bg-finance-gold px-8 py-3 text-base font-bold text-midnight-navy shadow-lg transition hover:brightness-110"
+        >
+          {canResume ? '新しいゲーム ▶' : 'ゲーム開始 ▶'}
+        </button>
+        {canResume && (
+          <button
+            type="button"
+            onClick={() => loadGame()}
+            className="rounded-xl border border-finance-gold/60 px-8 py-2.5 text-sm font-bold text-finance-gold transition hover:bg-finance-gold/10"
+          >
+            📂 つづきから
+          </button>
+        )}
+      </div>
       <p className="mt-6 font-data text-[11px] text-smoke-gray">
         あなた + CPU銀行 3行 ／ 100ターン or 総資産1億円で決着
       </p>
     </div>
+  );
+}
+
+/** 設定 / ポーズモーダル：音量・速度・フルスクリーン・セーブ・タイトル。 */
+function SettingsModal({ onClose }: { onClose: () => void }) {
+  const started = useGameStore((s) => s.started);
+  const phase = useGameStore((s) => s.phase);
+  const saveGame = useGameStore((s) => s.saveGame);
+
+  const master = useSettingsStore((s) => s.masterVolume);
+  const bgm = useSettingsStore((s) => s.bgmVolume);
+  const se = useSettingsStore((s) => s.seVolume);
+  const speed = useSettingsStore((s) => s.gameSpeed);
+  const setMaster = useSettingsStore((s) => s.setMasterVolume);
+  const setBgm = useSettingsStore((s) => s.setBgmVolume);
+  const setSe = useSettingsStore((s) => s.setSeVolume);
+  const setSpeed = useSettingsStore((s) => s.setGameSpeed);
+
+  const inGame = started && phase !== 'gameover';
+
+  const toggleFullscreen = () => {
+    if (document.fullscreenElement) document.exitFullscreen?.();
+    else document.documentElement.requestFullscreen?.();
+  };
+
+  const quitToTitle = () => {
+    useGameStore.setState({ started: false });
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-midnight-navy/80 backdrop-blur-sm">
+      <div className="w-[420px] rounded-2xl border border-white/15 bg-map-ground p-6 shadow-2xl">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="font-display text-xl font-bold text-finance-gold">
+            ⚙ 設定
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md px-2 py-1 text-smoke-gray transition hover:bg-white/10 hover:text-off-white"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="flex flex-col gap-4">
+          <VolumeSlider
+            label="マスター音量"
+            value={master}
+            onChange={setMaster}
+          />
+          <VolumeSlider label="BGM 音量" value={bgm} onChange={setBgm} />
+          <VolumeSlider label="効果音 音量" value={se} onChange={setSe} />
+
+          <div>
+            <p className="mb-1.5 text-xs uppercase tracking-wider text-smoke-gray">
+              ゲーム速度
+            </p>
+            <div className="flex gap-2">
+              {GAME_SPEEDS.map((sp) => (
+                <button
+                  key={sp}
+                  type="button"
+                  onClick={() => setSpeed(sp)}
+                  className={
+                    speed === sp
+                      ? 'flex-1 rounded-lg bg-finance-gold py-1.5 text-sm font-bold text-midnight-navy'
+                      : 'flex-1 rounded-lg border border-white/15 py-1.5 text-sm text-off-white transition hover:bg-white/10'
+                  }
+                >
+                  ×{sp}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={toggleFullscreen}
+            className="rounded-lg border border-white/15 py-2 text-sm text-off-white transition hover:bg-white/10"
+          >
+            ⛶ フルスクリーン切替
+          </button>
+
+          {inGame && (
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={saveGame}
+                className="flex-1 rounded-lg bg-finance-gold py-2 text-sm font-bold text-midnight-navy transition hover:brightness-110"
+              >
+                💾 セーブ
+              </button>
+              <button
+                type="button"
+                onClick={quitToTitle}
+                className="flex-1 rounded-lg border border-market-red/60 py-2 text-sm text-market-red transition hover:bg-market-red/10"
+              >
+                タイトルへ
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** 0–1 の音量スライダー。 */
+function VolumeSlider({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  onChange: (v: number) => void;
+}) {
+  return (
+    <label className="block">
+      <div className="mb-1 flex justify-between text-xs text-smoke-gray">
+        <span>{label}</span>
+        <span className="font-data text-off-white">
+          {Math.round(value * 100)}
+        </span>
+      </div>
+      <input
+        type="range"
+        min={0}
+        max={1}
+        step={0.05}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="w-full accent-finance-gold"
+      />
+    </label>
   );
 }
 
