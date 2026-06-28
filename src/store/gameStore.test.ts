@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { useGameStore, MAX_TURN, economyMultiplier } from './gameStore';
 import { BRANCH_SPECS } from '@/game/branchSpec';
 import { EVENT_DECK } from '@/game/eventCards';
+import { CITIES } from '@/game/mapData';
 
 const s = () => useGameStore.getState();
 
@@ -83,25 +84,18 @@ describe('gameStore — 支店経済', () => {
   });
 
   it('他人の支店に止まると利用料が所有者へ移る', () => {
-    // p2(osaka) の隣に支店を作り、p1 をそこへ止める…のは経路依存なので、
-    // ストアに直接ブランチを差し込んで完結的に検証する。
+    // 経路はマップ依存なので、移動先を直接注入して手数料ロジックを検証する。
     s().reset();
-    // p1 を sendai に置き、tokyo に p2 の Lv2 支店を用意 → p1 が tokyo に来たら手数料
     useGameStore.setState({
+      phase: 'moving',
       branches: { tokyo: { ownerId: 'p2', level: 2 } },
-      players: s().players.map((p) =>
-        p.id === 'p1' ? { ...p, position: 'sendai' } : p,
-      ),
+      pendingMove: { dest: 'tokyo', path: ['osaka', 'tokyo'] },
     });
     const p1Before = s().players[0].cash;
     const p2Before = s().players[1].cash;
     const fee = BRANCH_SPECS[2].fee;
 
-    // sendai -> tokyo は隣接（1歩）
-    vi.spyOn(Math, 'random').mockReturnValue(0); // 出目 1
-    s().rollDice();
-    s().chooseDestination('tokyo');
-    s().completeMove();
+    s().completeMove(); // p1（現在の手番）が tokyo に到着 → 手数料
 
     expect(s().players[0].cash).toBe(p1Before - fee);
     expect(s().players[1].cash).toBe(p2Before + fee);
@@ -245,15 +239,13 @@ describe('gameStore — イベントカード', () => {
 
   it('手数料マスではイベントを引かず action へ', () => {
     s().reset();
+    // 他人の支店へ移動先を直接注入。乱数 0 でもイベントは引かれないこと。
     useGameStore.setState({
+      phase: 'moving',
       branches: { tokyo: { ownerId: 'p2', level: 2 } },
-      players: s().players.map((p) =>
-        p.id === 'p1' ? { ...p, position: 'sendai' } : p,
-      ),
+      pendingMove: { dest: 'tokyo', path: ['osaka', 'tokyo'] },
     });
-    vi.spyOn(Math, 'random').mockReturnValue(0); // 出目1（sendai→tokyo）
-    s().rollDice();
-    s().chooseDestination('tokyo');
+    vi.spyOn(Math, 'random').mockReturnValue(0);
     s().completeMove();
     expect(s().phase).toBe('action');
     expect(s().activeCard).toBeNull();
@@ -282,10 +274,11 @@ describe('gameStore — イベントカード', () => {
   });
 
   it('applyEventCard：cityDevelop カードで該当タイプ都市の育成段数が上がる', () => {
+    const tourismCity = CITIES.find((c) => c.type === 'tourism')!;
     useGameStore.setState({ phase: 'event', activeCard: cardOf('inbound') });
     s().applyEventCard();
-    // inbound = 観光都市 develop +1（kyoto は観光都市）
-    expect(s().develop.kyoto).toBe(1);
+    // inbound = 観光都市の develop +1
+    expect(s().develop[tourismCity.id]).toBe(1);
   });
 });
 
