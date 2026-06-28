@@ -66,7 +66,7 @@ const PLAYER_SEED: Array<Pick<Player, 'id' | 'name' | 'isCpu' | 'position'>> = [
   { id: 'p1', name: 'あなた', isCpu: false, position: 'tokyo' },
   { id: 'p2', name: 'CPU銀行A', isCpu: true, position: 'osaka' },
   { id: 'p3', name: 'CPU銀行B', isCpu: true, position: 'fukuoka' },
-  { id: 'p4', name: 'CPU銀行C', isCpu: true, position: 'sendai' },
+  { id: 'p4', name: 'CPU銀行C', isCpu: true, position: 'sapporo' },
 ];
 
 function makePlayers(): Player[] {
