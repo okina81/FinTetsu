@@ -4,6 +4,7 @@ import { HEX } from '../theme';
 import { useGameStore } from '@/store/gameStore';
 import type { GameStore } from '@/store/gameStore';
 import { useSettingsStore } from '@/store/settingsStore';
+import { sfx } from '@/audio/sfx';
 
 /**
  * 実装設計書 4. PieceLayer — プレイヤーのコマ管理。
@@ -201,6 +202,7 @@ export class PieceLayer {
         return;
       }
       const speed = useSettingsStore.getState().gameSpeed || 1;
+      sfx.step(); // 1 マスごとの軽いチック
       this.scene.tweens.add({
         targets: token,
         x: segments[i].x,
