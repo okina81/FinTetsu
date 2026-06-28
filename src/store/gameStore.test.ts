@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { useGameStore, MAX_TURN, economyMultiplier } from './gameStore';
 import { BRANCH_SPECS } from '@/game/branchSpec';
+import { EVENT_DECK } from '@/game/eventCards';
 
 const s = () => useGameStore.getState();
 
@@ -31,7 +32,7 @@ describe('gameStore — ループ基本', () => {
   });
 
   it('completeMove で現在地更新 → action フェーズ', () => {
-    vi.spyOn(Math, 'random').mockReturnValue(0); // 出目 1
+    vi.spyOn(Math, 'random').mockReturnValue(0.5); // 出目 4 / イベント非発生
     s().rollDice();
     const dest = s().options[0].dest;
     s().chooseDestination(dest);
@@ -41,7 +42,7 @@ describe('gameStore — ループ基本', () => {
   });
 
   it('endTurn は次プレイヤーへ（4人なので turn は据え置き）', () => {
-    vi.spyOn(Math, 'random').mockReturnValue(0);
+    vi.spyOn(Math, 'random').mockReturnValue(0.5); // イベント非発生
     s().rollDice();
     s().chooseDestination(s().options[0].dest);
     s().completeMove();
@@ -57,7 +58,7 @@ describe('gameStore — 支店経済', () => {
   afterEach(() => vi.restoreAllMocks());
 
   it('未所有都市に支店を設立すると現金が減り所有権が付く', () => {
-    vi.spyOn(Math, 'random').mockReturnValue(0); // 出目 1
+    vi.spyOn(Math, 'random').mockReturnValue(0.5); // 出目 4 / イベント非発生
     const cashBefore = s().players[0].cash;
     s().rollDice();
     const dest = s().options[0].dest;
@@ -69,7 +70,7 @@ describe('gameStore — 支店経済', () => {
   });
 
   it('自分の支店は強化でき、レベルが上がる', () => {
-    vi.spyOn(Math, 'random').mockReturnValue(0);
+    vi.spyOn(Math, 'random').mockReturnValue(0.5); // イベント非発生
     s().rollDice();
     const dest = s().options[0].dest;
     s().chooseDestination(dest);
@@ -224,5 +225,66 @@ describe('gameStore — 景気・地域育成', () => {
     });
     s().developCity();
     expect(s().develop.tokyo).toBeUndefined();
+  });
+});
+
+describe('gameStore — イベントカード', () => {
+  beforeEach(() => s().reset());
+  afterEach(() => vi.restoreAllMocks());
+
+  const cardOf = (id: string) => EVENT_DECK.find((c) => c.id === id)!;
+
+  it('到着時に確率でカードを引き event フェーズへ（手数料マスは除く）', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0); // 出目1 / イベント発生 / 先頭カード
+    s().rollDice();
+    s().chooseDestination(s().options[0].dest);
+    s().completeMove();
+    expect(s().phase).toBe('event');
+    expect(s().activeCard).not.toBeNull();
+  });
+
+  it('手数料マスではイベントを引かず action へ', () => {
+    s().reset();
+    useGameStore.setState({
+      branches: { tokyo: { ownerId: 'p2', level: 2 } },
+      players: s().players.map((p) =>
+        p.id === 'p1' ? { ...p, position: 'sendai' } : p,
+      ),
+    });
+    vi.spyOn(Math, 'random').mockReturnValue(0); // 出目1（sendai→tokyo）
+    s().rollDice();
+    s().chooseDestination('tokyo');
+    s().completeMove();
+    expect(s().phase).toBe('action');
+    expect(s().activeCard).toBeNull();
+  });
+
+  it('applyEventCard：cash カードで現金が増える', () => {
+    useGameStore.setState({
+      phase: 'event',
+      activeCard: cardOf('local-grant'),
+    });
+    const before = s().players[0].cash;
+    s().applyEventCard();
+    expect(s().players[0].cash).toBe(before + 5_000_000);
+    expect(s().phase).toBe('action');
+    expect(s().activeCard).toBeNull();
+  });
+
+  it('applyEventCard：economy カードで景気が変動する', () => {
+    useGameStore.setState({
+      phase: 'event',
+      economy: 3,
+      activeCard: cardOf('boj-cut'),
+    });
+    s().applyEventCard();
+    expect(s().economy).toBe(4); // +1
+  });
+
+  it('applyEventCard：cityDevelop カードで該当タイプ都市の育成段数が上がる', () => {
+    useGameStore.setState({ phase: 'event', activeCard: cardOf('inbound') });
+    s().applyEventCard();
+    // inbound = 観光都市 develop +1（kyoto は観光都市）
+    expect(s().develop.kyoto).toBe(1);
   });
 });

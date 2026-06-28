@@ -73,8 +73,63 @@ export default function App() {
 
       <ActionBar />
 
+      {phase === 'event' && <EventModal />}
       {phase === 'gameover' && <ResultOverlay />}
       {!started && <TitleOverlay />}
+    </div>
+  );
+}
+
+/** イベントカード演出モーダル（設計書 3-3）。 */
+function EventModal() {
+  const card = useGameStore((s) => s.activeCard);
+  const players = useGameStore((s) => s.players);
+  const currentPlayerIndex = useGameStore((s) => s.currentPlayerIndex);
+  const applyEventCard = useGameStore((s) => s.applyEventCard);
+  if (!card) return null;
+
+  const me = players[currentPlayerIndex];
+  const theme = {
+    chance: { icon: '🎴', label: 'チャンス！', color: '#4caf50' },
+    happening: { icon: '💀', label: 'ハプニング発生！', color: '#ff4d6d' },
+    regional: { icon: '🏙️', label: '地域経済ニュース', color: '#00b4d8' },
+  }[card.category];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-midnight-navy/80 backdrop-blur-sm">
+      <div
+        className="w-[420px] rounded-2xl border bg-map-ground p-6 text-center shadow-2xl"
+        style={{ borderColor: theme.color }}
+      >
+        <p
+          className="mb-4 font-display text-lg font-bold"
+          style={{ color: theme.color }}
+        >
+          {theme.icon} {theme.label}
+        </p>
+        <div
+          className="rounded-xl border border-white/10 bg-midnight-navy/60 p-5"
+          style={{ boxShadow: `0 0 24px ${theme.color}33` }}
+        >
+          <div className="mb-2 text-4xl">{theme.icon}</div>
+          <h3 className="font-display text-xl font-bold text-off-white">
+            {card.title}
+          </h3>
+          <p className="mt-2 text-sm text-smoke-gray">{card.description}</p>
+        </div>
+        <button
+          type="button"
+          disabled={me?.isCpu}
+          onClick={applyEventCard}
+          className={
+            me?.isCpu
+              ? 'mt-5 w-full cursor-not-allowed rounded-lg border border-white/15 px-4 py-2.5 text-sm text-smoke-gray'
+              : 'mt-5 w-full rounded-lg bg-finance-gold px-4 py-2.5 text-sm font-bold text-midnight-navy transition hover:brightness-110'
+          }
+        >
+          {me?.isCpu ? `${me.name} が確認中…` : '確認する'}
+        </button>
+      </div>
     </div>
   );
 }

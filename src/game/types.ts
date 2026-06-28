@@ -40,10 +40,17 @@ export type BankType = 'regional' | 'mega' | 'net' | 'credit-union';
  *   roll     : サイコロ待ち
  *   select   : 出目が確定し、移動先の選択待ち（分岐ハイライト中）
  *   moving   : コマがアニメーション移動中
+ *   event    : 到着時にイベントカードを引いた（カード演出中）
  *   action   : 到着後の行動（支店設立・強化・ターン終了）
  *   gameover : ゲーム終了（結果表示）
  */
-export type GamePhase = 'roll' | 'select' | 'moving' | 'action' | 'gameover';
+export type GamePhase =
+  | 'roll'
+  | 'select'
+  | 'moving'
+  | 'event'
+  | 'action'
+  | 'gameover';
 
 export type Player = {
   id: string;
