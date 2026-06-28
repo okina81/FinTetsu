@@ -10,9 +10,21 @@ import {
   upgradeCost,
 } from '@/game/branchSpec';
 import { drawEventCard, type EventCard } from '@/game/eventCards';
+import { storage } from '@/lib/persist';
 
 /** 到着時にイベントカードを引く確率（手数料を払うマスを除く）。 */
 const EVENT_CHANCE = 0.4;
+
+/** セーブデータの localStorage キーと、保存する状態のスナップショット型。 */
+const SAVE_KEY = 'fintetsu:save';
+type SavedGame = {
+  turn: number;
+  players: Player[];
+  currentPlayerIndex: number;
+  branches: Record<string, Branch>;
+  economy: EconomyLevel;
+  develop: Record<string, number>;
+};
 
 /**
  * 実装設計書 5 / Step 5–7。
@@ -126,6 +138,16 @@ export type GameStore = {
   applyEventCard: () => void;
   endTurn: () => void;
   reset: () => void;
+
+  // --- セーブ / ロード（中断再開） ---
+  /** 現在の局面を localStorage に保存する。 */
+  saveGame: () => void;
+  /** 保存した局面を読み込んで再開する（無ければ false）。 */
+  loadGame: () => boolean;
+  /** セーブデータの有無。 */
+  hasSavedGame: () => boolean;
+  /** セーブデータを削除する。 */
+  clearSavedGame: () => void;
 
   // --- セレクタ ---
   currentPlayer: () => Player;
@@ -374,6 +396,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     );
 
     if (nextTurn > MAX_TURN) {
+      storage.remove(SAVE_KEY);
       set({
         players: players2,
         phase: 'gameover',
@@ -383,6 +406,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       return;
     }
     if (richReached) {
+      storage.remove(SAVE_KEY);
       set({
         players: players2,
         phase: 'gameover',
@@ -391,6 +415,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
       });
       return;
     }
+
+    // 安定点（次プレイヤーの roll 直前）で自動セーブ
+    storage.setJSON(SAVE_KEY, {
+      turn: nextTurn,
+      players: players2,
+      currentPlayerIndex: nextIndex,
+      branches,
+      economy: nextEconomy,
+      develop,
+    } satisfies SavedGame);
 
     const next = players2[nextIndex];
     const econMsg =
@@ -429,6 +463,48 @@ export const useGameStore = create<GameStore>((set, get) => ({
       winnerId: null,
       started: true, // リプレイはタイトルを経由せず即開始
     }),
+
+  saveGame: () => {
+    const { turn, players, currentPlayerIndex, branches, economy, develop } =
+      get();
+    const snapshot: SavedGame = {
+      turn,
+      players,
+      currentPlayerIndex,
+      branches,
+      economy,
+      develop,
+    };
+    storage.setJSON(SAVE_KEY, snapshot);
+    set({ message: '💾 セーブしました' });
+  },
+
+  loadGame: () => {
+    const saved = storage.getJSON<SavedGame>(SAVE_KEY);
+    if (!saved) return false;
+    // 移動・選択・カードなどの一時状態はクリアし、安定した roll から再開
+    set({
+      turn: saved.turn,
+      players: saved.players,
+      currentPlayerIndex: saved.currentPlayerIndex,
+      branches: saved.branches,
+      economy: saved.economy,
+      develop: saved.develop,
+      phase: 'roll',
+      dice: null,
+      options: [],
+      pendingMove: null,
+      activeCard: null,
+      winnerId: null,
+      started: true,
+      message: '📂 セーブデータから再開',
+    });
+    return true;
+  },
+
+  hasSavedGame: () => storage.get(SAVE_KEY) != null,
+
+  clearSavedGame: () => storage.remove(SAVE_KEY),
 
   currentPlayer: () => {
     const { players, currentPlayerIndex } = get();
