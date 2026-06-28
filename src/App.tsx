@@ -13,6 +13,7 @@ import { CITY_BY_ID } from '@/game/mapData';
 import { BRANCH_SPECS } from '@/game/branchSpec';
 import { Mascot } from '@/components/Mascot';
 import { DiceButton } from '@/components/DiceButton';
+import { useCountUp } from '@/hooks/useCountUp';
 import type { Player } from '@/game/types';
 
 /**
@@ -117,7 +118,7 @@ function EventModal() {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-midnight-navy/80 backdrop-blur-sm">
       <div
-        className="w-[420px] animate-pop-in rounded-pop border-4 bg-blueberry-700 p-6 text-center shadow-pop-lg"
+        className="w-[420px] animate-card-flip rounded-pop border-4 bg-blueberry-700 p-6 text-center shadow-pop-lg"
         style={{ borderColor: theme.color }}
       >
         <p className="mb-4 font-display text-xl" style={{ color: theme.color }}>
@@ -159,6 +160,8 @@ function PlayerCard({
   active: boolean;
 }) {
   const city = CITY_BY_ID[player.position];
+  const assetsAnim = useCountUp(assets);
+  const cashAnim = useCountUp(player.cash);
   return (
     <div
       className="rounded-pop border-2 bg-blueberry-600 p-2.5 transition"
@@ -185,10 +188,10 @@ function PlayerCard({
         </span>
       </div>
       <div className="font-data text-lg font-bold text-finance-gold">
-        {formatMan(assets)}
+        {formatMan(assetsAnim)}
       </div>
       <div className="font-data text-[11px] text-smoke-gray">
-        現金 {formatMan(player.cash)}
+        現金 {formatMan(cashAnim)}
       </div>
     </div>
   );
