@@ -166,9 +166,9 @@ export class MapLayer {
     for (const c of CITIES) {
       if ((c.population ?? 0) < MapLayer.LABEL_POP) continue;
       const t = this.scene.add.text(c.x, c.y + r + 3, c.name, {
-        fontFamily: FONTS.display,
+        fontFamily: FONTS.sans,
         fontSize: '13px',
-        color: '#e8eaf0',
+        color: '#f3f1ff',
         fontStyle: 'bold',
       });
       t.setOrigin(0.5, 0);

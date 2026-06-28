@@ -14,9 +14,9 @@ body,
 }
 
 body {
-  background-color: #0a0e1a; /* 深夜ネイビー */
-  color: #e8eaf0; /* オフホワイト */
-  font-family: 'Noto Sans JP', sans-serif;
+  background-color: #1b1d3a; /* ブルーベリー */
+  color: #f3f1ff; /* オフホワイト */
+  font-family: 'M PLUS Rounded 1c', sans-serif;
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
 }

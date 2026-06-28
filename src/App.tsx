@@ -11,6 +11,7 @@ import { useAudio } from '@/hooks/useAudio';
 import { useSettingsStore, GAME_SPEEDS } from '@/store/settingsStore';
 import { CITY_BY_ID } from '@/game/mapData';
 import { BRANCH_SPECS } from '@/game/branchSpec';
+import { Mascot } from '@/components/Mascot';
 import type { Player } from '@/game/types';
 
 /**
@@ -37,12 +38,15 @@ export default function App() {
   return (
     <div className="flex h-full w-full flex-col bg-midnight-navy text-off-white">
       {/* トップバー */}
-      <header className="flex items-center justify-between border-b border-white/10 px-5 py-2.5">
-        <h1 className="font-display text-xl font-bold text-finance-gold">
-          FinTetsu<span className="ml-2 text-sm text-smoke-gray">フィン鉄</span>
+      <header className="flex items-center justify-between bg-blueberry-700 px-5 py-2.5 shadow-pop">
+        <h1 className="flex items-center gap-2 font-display text-xl text-finance-gold">
+          <span className="drop-shadow-[0_2px_0_rgba(0,0,0,0.3)]">
+            FinTetsu
+          </span>
+          <span className="text-sm text-candy-pink">フィン鉄</span>
         </h1>
-        <div className="flex items-center gap-5 text-sm">
-          <span className="font-data text-smoke-gray">
+        <div className="flex items-center gap-4 text-sm">
+          <span className="rounded-full bg-blueberry-600 px-3 py-1 font-data text-smoke-gray">
             ターン <span className="text-off-white">{turn}</span>/{MAX_TURN}
           </span>
           <EconomyGauge />
@@ -50,7 +54,7 @@ export default function App() {
             type="button"
             aria-label="設定"
             onClick={() => setSettingsOpen(true)}
-            className="rounded-md border border-white/15 px-2 py-1 text-off-white transition hover:bg-white/10"
+            className="rounded-full bg-blueberry-600 px-3 py-1.5 text-off-white shadow-pop transition hover:brightness-110 active:translate-y-0.5"
           >
             ⚙
           </button>
@@ -63,10 +67,10 @@ export default function App() {
           <PhaserContainer />
         </main>
 
-        <aside className="hidden w-72 shrink-0 flex-col gap-3 overflow-y-auto border-l border-white/10 p-4 lg:flex">
+        <aside className="hidden w-72 shrink-0 flex-col gap-4 overflow-y-auto bg-blueberry-700/60 p-4 lg:flex">
           <section>
-            <h2 className="mb-1.5 text-xs font-medium uppercase tracking-wider text-smoke-gray">
-              プレイヤー
+            <h2 className="mb-2 font-display text-sm text-candy-teal">
+              👥 プレイヤー
             </h2>
             <div className="flex flex-col gap-2">
               {players.map((p, i) => (
@@ -104,31 +108,26 @@ function EventModal() {
 
   const me = players[currentPlayerIndex];
   const theme = {
-    chance: { icon: '🎴', label: 'チャンス！', color: '#4caf50' },
-    happening: { icon: '💀', label: 'ハプニング発生！', color: '#ff4d6d' },
-    regional: { icon: '🏙️', label: '地域経済ニュース', color: '#00b4d8' },
+    chance: { icon: '🎁', label: 'チャンス！', color: '#5fd97a' },
+    happening: { icon: '💥', label: 'ハプニング発生！', color: '#ff5d7a' },
+    regional: { icon: '🏙️', label: '地域経済ニュース', color: '#3dc6ff' },
   }[card.category];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-midnight-navy/80 backdrop-blur-sm">
       <div
-        className="w-[420px] rounded-2xl border bg-map-ground p-6 text-center shadow-2xl"
+        className="w-[420px] animate-pop-in rounded-pop border-4 bg-blueberry-700 p-6 text-center shadow-pop-lg"
         style={{ borderColor: theme.color }}
       >
-        <p
-          className="mb-4 font-display text-lg font-bold"
-          style={{ color: theme.color }}
-        >
+        <p className="mb-4 font-display text-xl" style={{ color: theme.color }}>
           {theme.icon} {theme.label}
         </p>
         <div
-          className="rounded-xl border border-white/10 bg-midnight-navy/60 p-5"
-          style={{ boxShadow: `0 0 24px ${theme.color}33` }}
+          className="rounded-pop border-2 border-white/10 bg-blueberry-600 p-5"
+          style={{ boxShadow: `0 0 24px ${theme.color}44` }}
         >
-          <div className="mb-2 text-4xl">{theme.icon}</div>
-          <h3 className="font-display text-xl font-bold text-off-white">
-            {card.title}
-          </h3>
+          <div className="mb-2 text-5xl">{theme.icon}</div>
+          <h3 className="font-display text-xl text-off-white">{card.title}</h3>
           <p className="mt-2 text-sm text-smoke-gray">{card.description}</p>
         </div>
         <button
@@ -137,11 +136,11 @@ function EventModal() {
           onClick={applyEventCard}
           className={
             me?.isCpu
-              ? 'mt-5 w-full cursor-not-allowed rounded-lg border border-white/15 px-4 py-2.5 text-sm text-smoke-gray'
-              : 'mt-5 w-full rounded-lg bg-finance-gold px-4 py-2.5 text-sm font-bold text-midnight-navy transition hover:brightness-110'
+              ? 'mt-5 w-full cursor-not-allowed rounded-pop bg-blueberry-600 px-4 py-2.5 text-sm font-bold text-smoke-gray'
+              : 'mt-5 w-full rounded-pop bg-finance-gold px-4 py-2.5 text-sm font-bold text-midnight-navy shadow-pop transition hover:brightness-110 active:translate-y-0.5'
           }
         >
-          {me?.isCpu ? `${me.name} が確認中…` : '確認する'}
+          {me?.isCpu ? `${me.name} が確認中…` : 'OK！'}
         </button>
       </div>
     </div>
@@ -161,25 +160,30 @@ function PlayerCard({
   const city = CITY_BY_ID[player.position];
   return (
     <div
-      className="rounded-lg border bg-map-ground p-2.5 transition"
+      className="rounded-pop border-2 bg-blueberry-600 p-2.5 transition"
       style={{
         borderColor: active ? player.color : 'rgba(255,255,255,0.08)',
-        boxShadow: active ? `0 0 12px ${player.color}66` : 'none',
+        boxShadow: active
+          ? `0 4px 0 rgba(0,0,0,0.25), 0 0 16px ${player.color}88`
+          : '0 4px 0 rgba(0,0,0,0.25)',
+        transform: active ? 'translateY(-1px)' : 'none',
       }}
     >
       <div className="flex items-center justify-between text-sm">
-        <span className="flex items-center gap-1.5">
+        <span className="flex items-center gap-1.5 font-bold">
           <span
-            className="inline-block h-2.5 w-2.5 rounded-full"
-            style={{ backgroundColor: player.color }}
-          />
-          {player.isCpu ? '👤' : '🏦'} {player.name}
+            className="inline-flex h-5 w-5 items-center justify-center rounded-full text-[11px]"
+            style={{ backgroundColor: player.color, color: '#1b1d3a' }}
+          >
+            {player.isCpu ? '🤖' : '🏦'}
+          </span>
+          {player.name}
         </span>
         <span className="font-data text-[11px] text-smoke-gray">
           {city?.name ?? '—'}
         </span>
       </div>
-      <div className="font-data text-base text-finance-gold">
+      <div className="font-data text-lg font-bold text-finance-gold">
         {formatMan(assets)}
       </div>
       <div className="font-data text-[11px] text-smoke-gray">
@@ -204,19 +208,19 @@ function BranchList({
   );
   return (
     <section>
-      <h2 className="mb-1.5 text-xs font-medium uppercase tracking-wider text-smoke-gray">
-        支店一覧（あなた）
-      </h2>
+      <h2 className="mb-2 font-display text-sm text-candy-teal">🏦 支店一覧</h2>
       {owned.length === 0 ? (
-        <p className="text-xs text-smoke-gray">まだ支店がありません</p>
+        <p className="rounded-pop bg-blueberry-600/60 px-3 py-2 text-xs text-smoke-gray">
+          まだ支店がありません
+        </p>
       ) : (
-        <ul className="flex flex-col gap-1">
+        <ul className="flex flex-col gap-1.5">
           {owned.map(([cid, b]) => {
             const spec = BRANCH_SPECS[b.level];
             return (
               <li
                 key={cid}
-                className="flex items-center justify-between rounded bg-white/5 px-2 py-1 text-xs"
+                className="flex items-center justify-between rounded-pop bg-blueberry-600 px-3 py-1.5 text-xs shadow-pop"
               >
                 <span>
                   {CITY_BY_ID[cid]?.name}{' '}
@@ -260,14 +264,14 @@ function ActionBar() {
   const a = actionAt(me?.id ?? '');
 
   const primary =
-    'rounded-lg bg-finance-gold px-4 py-2 text-sm font-bold text-midnight-navy transition hover:brightness-110';
+    'rounded-pop bg-finance-gold px-4 py-2 text-sm font-bold text-midnight-navy shadow-pop transition hover:brightness-110 active:translate-y-0.5';
   const disabled =
-    'cursor-not-allowed rounded-lg border border-white/15 px-4 py-2 text-sm text-off-white opacity-40';
+    'cursor-not-allowed rounded-pop bg-blueberry-600 px-4 py-2 text-sm font-bold text-smoke-gray opacity-50';
   const ghost =
-    'rounded-lg border border-finance-gold/60 px-4 py-2 text-sm text-finance-gold transition hover:bg-finance-gold/10';
+    'rounded-pop bg-candy-teal px-4 py-2 text-sm font-bold text-midnight-navy shadow-pop transition hover:brightness-110 active:translate-y-0.5';
 
   return (
-    <footer className="flex items-center gap-3 border-t border-white/10 px-5 py-3">
+    <footer className="flex items-center gap-3 bg-blueberry-700 px-5 py-3 shadow-[0_-4px_0_rgba(0,0,0,0.2)]">
       <DiceButton
         enabled={isHuman && phase === 'roll'}
         dice={dice}
@@ -374,15 +378,15 @@ function DiceButton({
       onClick={handleClick}
       className={
         active
-          ? 'rounded-lg bg-finance-gold px-4 py-2 text-sm font-bold text-midnight-navy transition hover:brightness-110'
-          : 'cursor-not-allowed rounded-lg bg-finance-gold/90 px-4 py-2 text-sm font-bold text-midnight-navy opacity-50'
+          ? 'rounded-pop bg-finance-gold px-5 py-2 text-sm font-bold text-midnight-navy shadow-pop transition hover:brightness-110 active:translate-y-0.5'
+          : 'cursor-not-allowed rounded-pop bg-finance-gold/80 px-5 py-2 text-sm font-bold text-midnight-navy opacity-50'
       }
     >
-      🎲 サイコロを振る
+      🎲 サイコロをふる
       {shown != null && (
         <span
           key={`${rolling}-${shown}`}
-          className={`font-data ml-2 inline-block rounded bg-midnight-navy/30 px-1.5 ${
+          className={`font-data ml-2 inline-block rounded-md bg-midnight-navy/30 px-1.5 ${
             rolling ? 'animate-dice-spin' : 'animate-dice-pop'
           }`}
         >
@@ -401,38 +405,42 @@ function TitleOverlay() {
   const canResume = hasSavedGame();
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-midnight-navy/85 backdrop-blur-sm">
-      <p className="mb-2 font-data text-xs tracking-[0.3em] text-telegraph-blue">
+    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-gradient-to-b from-blueberry-700/95 to-midnight-navy/95 backdrop-blur-sm">
+      <Mascot
+        size={132}
+        className="animate-bob drop-shadow-[0_6px_0_rgba(0,0,0,0.25)]"
+      />
+      <p className="mb-1 mt-4 font-data text-xs tracking-[0.3em] text-candy-teal">
         BANK ﹡ RAIL ﹡ JAPAN
       </p>
-      <h1 className="animate-title-glow font-display text-6xl font-bold text-finance-gold">
+      <h1 className="animate-title-glow font-display text-6xl text-finance-gold drop-shadow-[0_4px_0_rgba(0,0,0,0.3)]">
         FinTetsu
       </h1>
-      <p className="mt-1 font-display text-2xl text-off-white">フィン鉄</p>
-      <p className="mt-5 max-w-md text-center text-sm leading-relaxed text-smoke-gray">
+      <p className="mt-2 font-display text-2xl text-candy-pink">フィン鉄</p>
+      <p className="mt-5 max-w-md text-center text-sm leading-relaxed text-off-white/90">
         日本全国を巡り、銀行支店を買収・経営して
         <br />
-        地域経済を育て、資産日本一を目指せ。
+        地域経済を育て、資産日本一を目指せ！
       </p>
       <div className="mt-8 flex flex-col items-center gap-3">
         <button
           type="button"
           onClick={startGame}
-          className="rounded-xl bg-finance-gold px-8 py-3 text-base font-bold text-midnight-navy shadow-lg transition hover:brightness-110"
+          className="rounded-pop bg-finance-gold px-10 py-3.5 text-lg font-bold text-midnight-navy shadow-pop-lg transition hover:brightness-110 active:translate-y-1"
         >
-          {canResume ? '新しいゲーム ▶' : 'ゲーム開始 ▶'}
+          {canResume ? '🎮 新しいゲーム' : '🎮 ゲームスタート'}
         </button>
         {canResume && (
           <button
             type="button"
             onClick={() => loadGame()}
-            className="rounded-xl border border-finance-gold/60 px-8 py-2.5 text-sm font-bold text-finance-gold transition hover:bg-finance-gold/10"
+            className="rounded-pop bg-candy-teal px-10 py-2.5 text-sm font-bold text-midnight-navy shadow-pop transition hover:brightness-110 active:translate-y-0.5"
           >
             📂 つづきから
           </button>
         )}
       </div>
-      <p className="mt-6 font-data text-[11px] text-smoke-gray">
+      <p className="mt-6 rounded-full bg-blueberry-600/70 px-4 py-1 font-data text-[11px] text-smoke-gray">
         あなた + CPU銀行 3行 ／ 100ターン or 総資産1億円で決着
       </p>
     </div>
@@ -468,15 +476,13 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-midnight-navy/80 backdrop-blur-sm">
-      <div className="w-[420px] rounded-2xl border border-white/15 bg-map-ground p-6 shadow-2xl">
+      <div className="w-[420px] animate-pop-in rounded-pop border-4 border-candy-grape bg-blueberry-700 p-6 shadow-pop-lg">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="font-display text-xl font-bold text-finance-gold">
-            ⚙ 設定
-          </h2>
+          <h2 className="font-display text-xl text-finance-gold">⚙ 設定</h2>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md px-2 py-1 text-smoke-gray transition hover:bg-white/10 hover:text-off-white"
+            className="rounded-full bg-blueberry-600 px-2.5 py-1 text-smoke-gray transition hover:text-off-white active:translate-y-0.5"
           >
             ✕
           </button>
@@ -492,9 +498,7 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
           <VolumeSlider label="効果音 音量" value={se} onChange={setSe} />
 
           <div>
-            <p className="mb-1.5 text-xs uppercase tracking-wider text-smoke-gray">
-              ゲーム速度
-            </p>
+            <p className="mb-1.5 text-xs text-smoke-gray">ゲーム速度</p>
             <div className="flex gap-2">
               {GAME_SPEEDS.map((sp) => (
                 <button
@@ -503,8 +507,8 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
                   onClick={() => setSpeed(sp)}
                   className={
                     speed === sp
-                      ? 'flex-1 rounded-lg bg-finance-gold py-1.5 text-sm font-bold text-midnight-navy'
-                      : 'flex-1 rounded-lg border border-white/15 py-1.5 text-sm text-off-white transition hover:bg-white/10'
+                      ? 'flex-1 rounded-pop bg-finance-gold py-1.5 text-sm font-bold text-midnight-navy shadow-pop'
+                      : 'flex-1 rounded-pop bg-blueberry-600 py-1.5 text-sm font-bold text-off-white transition hover:brightness-110'
                   }
                 >
                   ×{sp}
@@ -516,7 +520,7 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
           <button
             type="button"
             onClick={toggleFullscreen}
-            className="rounded-lg border border-white/15 py-2 text-sm text-off-white transition hover:bg-white/10"
+            className="rounded-pop bg-blueberry-600 py-2 text-sm font-bold text-off-white shadow-pop transition hover:brightness-110 active:translate-y-0.5"
           >
             ⛶ フルスクリーン切替
           </button>
@@ -526,14 +530,14 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
               <button
                 type="button"
                 onClick={saveGame}
-                className="flex-1 rounded-lg bg-finance-gold py-2 text-sm font-bold text-midnight-navy transition hover:brightness-110"
+                className="flex-1 rounded-pop bg-finance-gold py-2 text-sm font-bold text-midnight-navy shadow-pop transition hover:brightness-110 active:translate-y-0.5"
               >
                 💾 セーブ
               </button>
               <button
                 type="button"
                 onClick={quitToTitle}
-                className="flex-1 rounded-lg border border-market-red/60 py-2 text-sm text-market-red transition hover:bg-market-red/10"
+                className="flex-1 rounded-pop bg-market-red py-2 text-sm font-bold text-white shadow-pop transition hover:brightness-110 active:translate-y-0.5"
               >
                 タイトルへ
               </button>
@@ -587,35 +591,43 @@ function ResultOverlay() {
     (x, y) => totalAssets(y.id) - totalAssets(x.id),
   );
 
+  const winner = players.find((p) => p.id === winnerId);
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-midnight-navy/80 backdrop-blur-sm">
-      <div className="w-[420px] rounded-2xl border border-finance-gold/40 bg-map-ground p-6 shadow-2xl">
-        <h2 className="mb-1 text-center font-display text-2xl font-bold text-finance-gold">
-          🏆 ゲーム終了
-        </h2>
-        <p className="mb-4 text-center text-sm text-smoke-gray">
-          勝者は {players.find((p) => p.id === winnerId)?.name}
-        </p>
-        <ol className="flex flex-col gap-2">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-midnight-navy/85 backdrop-blur-sm">
+      <div className="w-[440px] animate-pop-in rounded-pop border-4 border-finance-gold bg-blueberry-700 p-6 shadow-pop-lg">
+        <div className="mb-2 flex flex-col items-center">
+          <Mascot
+            size={88}
+            color={winner?.color ?? '#ffd44d'}
+            className="animate-bob"
+          />
+          <h2 className="mt-2 font-display text-2xl text-finance-gold">
+            🏆 ゲーム終了！
+          </h2>
+          <p className="text-sm text-off-white">
+            勝者は <span className="font-bold">{winner?.name}</span>
+          </p>
+        </div>
+        <ol className="mt-3 flex flex-col gap-2">
           {ranking.map((p, i) => (
             <li
               key={p.id}
-              className="flex items-center justify-between rounded-lg px-3 py-2"
+              className="flex items-center justify-between rounded-pop px-3 py-2"
               style={{
                 backgroundColor:
-                  p.id === winnerId ? `${p.color}22` : 'rgba(255,255,255,0.04)',
-                border: `1px solid ${p.id === winnerId ? p.color : 'transparent'}`,
+                  p.id === winnerId ? `${p.color}26` : 'rgba(255,255,255,0.05)',
+                border: `2px solid ${p.id === winnerId ? p.color : 'transparent'}`,
               }}
             >
-              <span className="flex items-center gap-2">
+              <span className="flex items-center gap-2 font-bold">
                 <span className="font-data text-smoke-gray">{i + 1}位</span>
                 <span
-                  className="inline-block h-2.5 w-2.5 rounded-full"
+                  className="inline-block h-3 w-3 rounded-full"
                   style={{ backgroundColor: p.color }}
                 />
                 {p.name}
               </span>
-              <span className="font-data text-finance-gold">
+              <span className="font-data font-bold text-finance-gold">
                 {formatMan(totalAssets(p.id))}
               </span>
             </li>
@@ -624,9 +636,9 @@ function ResultOverlay() {
         <button
           type="button"
           onClick={reset}
-          className="mt-5 w-full rounded-lg bg-finance-gold px-4 py-2.5 text-sm font-bold text-midnight-navy transition hover:brightness-110"
+          className="mt-5 w-full rounded-pop bg-finance-gold px-4 py-3 text-base font-bold text-midnight-navy shadow-pop transition hover:brightness-110 active:translate-y-0.5"
         >
-          もう一度プレイ
+          🎮 もう一度プレイ
         </button>
       </div>
     </div>
