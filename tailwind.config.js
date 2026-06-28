@@ -64,6 +64,21 @@ export default {
           '0%,100%': { transform: 'translateY(0)' },
           '50%': { transform: 'translateY(-6px)' },
         },
+        // イベントカードのフリップ登場
+        cardFlip: {
+          '0%': {
+            transform: 'perspective(700px) rotateY(-100deg) scale(0.9)',
+            opacity: '0',
+          },
+          '60%': {
+            transform: 'perspective(700px) rotateY(12deg) scale(1.02)',
+            opacity: '1',
+          },
+          '100%': {
+            transform: 'perspective(700px) rotateY(0deg) scale(1)',
+            opacity: '1',
+          },
+        },
         // 3D サイコロの転がり（多軸回転）
         diceTumble: {
           '0%': { transform: 'rotateX(0deg) rotateY(0deg) rotateZ(0deg)' },
@@ -79,6 +94,7 @@ export default {
         'pop-in': 'popIn 0.35s cubic-bezier(0.34,1.56,0.64,1)',
         bob: 'bob 2.4s ease-in-out infinite',
         'dice-tumble': 'diceTumble 0.55s linear infinite',
+        'card-flip': 'cardFlip 0.5s ease-out',
       },
     },
   },

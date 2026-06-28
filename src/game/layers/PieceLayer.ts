@@ -198,6 +198,7 @@ export class PieceLayer {
         this.animating = false;
         const last = segments[segments.length - 1];
         this.arrivalEffect(last.x, last.y, color);
+        this.bounceToken(token);
         useGameStore.getState().completeMove();
         return;
       }
@@ -230,6 +231,17 @@ export class PieceLayer {
       duration: 520,
       ease: 'Cubic.out',
       onComplete: () => ring.destroy(),
+    });
+  }
+
+  /** 着地時のスカッシュ＆ストレッチ（ぷるんと弾む）。 */
+  private bounceToken(token: Phaser.GameObjects.Container): void {
+    this.scene.tweens.add({
+      targets: token,
+      scaleX: { from: 1.35, to: 1 },
+      scaleY: { from: 0.7, to: 1 },
+      duration: 360,
+      ease: 'Back.out',
     });
   }
 
