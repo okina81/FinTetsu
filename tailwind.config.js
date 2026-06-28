@@ -64,6 +64,13 @@ export default {
           '0%,100%': { transform: 'translateY(0)' },
           '50%': { transform: 'translateY(-6px)' },
         },
+        // 3D サイコロの転がり（多軸回転）
+        diceTumble: {
+          '0%': { transform: 'rotateX(0deg) rotateY(0deg) rotateZ(0deg)' },
+          '100%': {
+            transform: 'rotateX(720deg) rotateY(1080deg) rotateZ(360deg)',
+          },
+        },
       },
       animation: {
         'dice-pop': 'dicePop 0.4s ease-out',
@@ -71,6 +78,7 @@ export default {
         'title-glow': 'titleGlow 2.4s ease-in-out infinite',
         'pop-in': 'popIn 0.35s cubic-bezier(0.34,1.56,0.64,1)',
         bob: 'bob 2.4s ease-in-out infinite',
+        'dice-tumble': 'diceTumble 0.55s linear infinite',
       },
     },
   },

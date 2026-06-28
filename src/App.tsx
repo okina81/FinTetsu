@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { PhaserContainer } from '@/components/PhaserContainer';
 import {
   useGameStore,
@@ -12,6 +12,7 @@ import { useSettingsStore, GAME_SPEEDS } from '@/store/settingsStore';
 import { CITY_BY_ID } from '@/game/mapData';
 import { BRANCH_SPECS } from '@/game/branchSpec';
 import { Mascot } from '@/components/Mascot';
+import { DiceButton } from '@/components/DiceButton';
 import type { Player } from '@/game/types';
 
 /**
@@ -275,7 +276,10 @@ function ActionBar() {
       <DiceButton
         enabled={isHuman && phase === 'roll'}
         dice={dice}
-        onRoll={rollDice}
+        onRoll={() => {
+          rollDice();
+          return useGameStore.getState().dice ?? 1;
+        }}
       />
 
       {isHuman && phase === 'action' && a.canBuild && (
@@ -329,71 +333,6 @@ function EconomyGauge() {
       </span>
       <span className="text-off-white">{label}</span>
     </span>
-  );
-}
-
-/**
- * サイコロボタン。クリックで出目をスロット風に回し、確定時にバウンス。
- * 実装設計書 3-4 の出目演出を React 側で表現する。
- */
-function DiceButton({
-  enabled,
-  dice,
-  onRoll,
-}: {
-  enabled: boolean;
-  dice: number | null;
-  onRoll: () => void;
-}) {
-  const [rolling, setRolling] = useState(false);
-  const [face, setFace] = useState(dice ?? 1);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, []);
-
-  const handleClick = () => {
-    if (!enabled || rolling) return;
-    setRolling(true);
-    intervalRef.current = setInterval(() => {
-      setFace(1 + Math.floor(Math.random() * 6));
-    }, 70);
-    window.setTimeout(() => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-      setRolling(false);
-      onRoll(); // 演出のあとに実際の出目を確定
-    }, 650);
-  };
-
-  const shown = rolling ? face : dice;
-  const active = enabled || rolling;
-
-  return (
-    <button
-      type="button"
-      disabled={!active}
-      onClick={handleClick}
-      className={
-        active
-          ? 'rounded-pop bg-finance-gold px-5 py-2 text-sm font-bold text-midnight-navy shadow-pop transition hover:brightness-110 active:translate-y-0.5'
-          : 'cursor-not-allowed rounded-pop bg-finance-gold/80 px-5 py-2 text-sm font-bold text-midnight-navy opacity-50'
-      }
-    >
-      🎲 サイコロをふる
-      {shown != null && (
-        <span
-          key={`${rolling}-${shown}`}
-          className={`font-data ml-2 inline-block rounded-md bg-midnight-navy/30 px-1.5 ${
-            rolling ? 'animate-dice-spin' : 'animate-dice-pop'
-          }`}
-        >
-          {shown}
-        </span>
-      )}
-    </button>
   );
 }
 
