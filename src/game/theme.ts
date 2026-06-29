@@ -47,6 +47,15 @@ export const CITY_TYPE_COLOR: Record<string, number> = {
   rural: 0xffae3d, // 過疎地域
 };
 
+/** 都市タイプごとのノード配色（CSS 文字列版・凡例の色見本用）。 */
+export const CITY_TYPE_CSS: Record<string, string> = {
+  industrial: '#b6bee0',
+  tourism: '#3dc6ff',
+  agriculture: '#5fd97a',
+  financial: '#ffd44d',
+  rural: '#ffae3d',
+};
+
 /** 都市タイプの日本語ラベル。 */
 export const CITY_TYPE_LABEL: Record<string, string> = {
   industrial: '工業都市',

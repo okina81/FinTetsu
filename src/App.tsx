@@ -11,7 +11,9 @@ import { useAudio } from '@/hooks/useAudio';
 import { useSettingsStore, GAME_SPEEDS } from '@/store/settingsStore';
 import { CITY_BY_ID } from '@/game/mapData';
 import { BRANCH_SPECS } from '@/game/branchSpec';
-import { CITY_TYPE_LABEL } from '@/game/theme';
+import { CITY_TYPE_LABEL, CITY_TYPE_CSS } from '@/game/theme';
+import { CITY_TYPE_INFO } from '@/game/cityType';
+import type { CityType } from '@/game/types';
 import { Mascot } from '@/components/Mascot';
 import { DiceButton } from '@/components/DiceButton';
 import { useCountUp } from '@/hooks/useCountUp';
@@ -93,6 +95,8 @@ export default function App() {
           </section>
 
           <BranchList ownerId="p1" branches={branches} develop={develop} />
+
+          <Legend />
         </aside>
       </div>
 
@@ -251,6 +255,62 @@ function BranchList({
           })}
         </ul>
       )}
+    </section>
+  );
+}
+
+/** 凡例：マスの色と効果（収益倍率・設立費）の対応表。 */
+const LEGEND_ORDER: CityType[] = [
+  'financial',
+  'industrial',
+  'tourism',
+  'agriculture',
+  'rural',
+];
+
+function Legend() {
+  return (
+    <section>
+      <h2 className="mb-2 font-display text-sm text-candy-teal">
+        🎨 マスの色と効果
+      </h2>
+      <ul className="flex flex-col gap-1.5">
+        {LEGEND_ORDER.map((type) => {
+          const info = CITY_TYPE_INFO[type];
+          const pct = Math.round((info.revenueMult - 1) * 100);
+          const tag = pct === 0 ? '±0%' : `${pct > 0 ? '+' : ''}${pct}%`;
+          const tagColor =
+            pct > 0 ? '#5fd97a' : pct < 0 ? '#ff5d7a' : '#9aa0c8';
+          return (
+            <li
+              key={type}
+              className="rounded-pop bg-blueberry-600 px-2.5 py-1.5 text-xs shadow-pop"
+            >
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-2 font-bold">
+                  <span
+                    className="inline-block h-3 w-3 rounded-full"
+                    style={{
+                      backgroundColor: CITY_TYPE_CSS[type],
+                      boxShadow: `0 0 6px ${CITY_TYPE_CSS[type]}99`,
+                    }}
+                  />
+                  {CITY_TYPE_LABEL[type]}
+                </span>
+                <span className="flex items-center gap-1.5 font-data">
+                  <span style={{ color: tagColor }}>収益 {tag}</span>
+                  {info.buildMult < 1 && (
+                    <span className="text-candy-teal">設立費安</span>
+                  )}
+                </span>
+              </div>
+              <p className="mt-0.5 text-[11px] text-smoke-gray">
+                {info.effect}
+              </p>
+            </li>
+          );
+        })}
+      </ul>
     </section>
   );
 }
@@ -545,13 +605,24 @@ function CityPopup() {
     : undefined;
   const spec = branch ? BRANCH_SPECS[branch.level] : null;
   const dev = develop[cityId] ?? 0;
+  const info = CITY_TYPE_INFO[city.type];
+  const revPct = Math.round((info.revenueMult - 1) * 100);
+  const revTag = revPct === 0 ? '±0%' : `${revPct > 0 ? '+' : ''}${revPct}%`;
+  const buildCost = Math.round(BRANCH_SPECS[1].cost * info.buildMult);
 
   return (
     <div className="pointer-events-auto absolute left-1/2 top-3 w-72 -translate-x-1/2 animate-pop-in rounded-pop border-2 border-finance-gold/70 bg-blueberry-700 p-4 shadow-pop-lg">
       <div className="mb-2 flex items-start justify-between">
         <div>
           <h3 className="font-display text-lg text-off-white">{city.name}</h3>
-          <span className="text-[11px] text-candy-teal">
+          <span className="flex items-center gap-1.5 text-[11px] text-candy-teal">
+            <span
+              className="inline-block h-2.5 w-2.5 rounded-full"
+              style={{
+                backgroundColor: CITY_TYPE_CSS[city.type],
+                boxShadow: `0 0 6px ${CITY_TYPE_CSS[city.type]}99`,
+              }}
+            />
             {CITY_TYPE_LABEL[city.type]}
           </span>
         </div>
@@ -562,6 +633,19 @@ function CityPopup() {
         >
           ✕
         </button>
+      </div>
+
+      {/* 都市タイプの常時効果（色の意味） */}
+      <div className="mb-2 flex items-center justify-between rounded-pop bg-blueberry-600/60 px-3 py-1.5 text-[11px]">
+        <span className="text-smoke-gray">{info.effect}</span>
+        <span
+          className="font-data font-bold"
+          style={{
+            color: revPct > 0 ? '#5fd97a' : revPct < 0 ? '#ff5d7a' : '#9aa0c8',
+          }}
+        >
+          収益 {revTag}
+        </span>
       </div>
 
       <div className="rounded-pop bg-blueberry-600 px-3 py-2 text-sm">
@@ -587,9 +671,12 @@ function CityPopup() {
             </div>
           </>
         ) : (
-          <span className="text-xs text-smoke-gray">
-            未所有（支店を設立できる）
-          </span>
+          <div className="flex items-center justify-between text-xs text-smoke-gray">
+            <span>未所有（支店を設立できる）</span>
+            <span className="font-data text-finance-gold">
+              設立費 {formatMan(buildCost)}
+            </span>
+          </div>
         )}
       </div>
 

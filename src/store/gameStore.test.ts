@@ -8,6 +8,10 @@ import {
 import { BRANCH_SPECS } from '@/game/branchSpec';
 import { EVENT_DECK } from '@/game/eventCards';
 import { CITIES } from '@/game/mapData';
+import { CITY_TYPE_INFO } from '@/game/cityType';
+
+/** osaka は金融都市（収益倍率）。テストの期待値計算に使う。 */
+const OSAKA_MULT = CITY_TYPE_INFO.financial.revenueMult;
 
 const s = () => useGameStore.getState();
 
@@ -70,9 +74,11 @@ describe('gameStore — 支店経済', () => {
     const dest = s().options[0].dest;
     s().chooseDestination(dest);
     s().completeMove();
+    // 設立費は都市タイプ補正（過疎地域は割引）を受けるため、実費を捕捉する
+    const buildCost = s().actionAt('p1').buildCost;
     s().buildBranch();
     expect(s().branches[dest]).toEqual({ ownerId: 'p1', level: 1 });
-    expect(s().players[0].cash).toBe(cashBefore - BRANCH_SPECS[1].cost);
+    expect(s().players[0].cash).toBe(cashBefore - buildCost);
   });
 
   it('自分の支店は強化でき、レベルが上がる', () => {
@@ -114,7 +120,9 @@ describe('gameStore — 支店経済', () => {
     });
     const before = s().players[0].cash;
     s().endTurn();
-    expect(s().players[0].cash).toBe(before + BRANCH_SPECS[3].revenue);
+    expect(s().players[0].cash).toBe(
+      before + Math.round(BRANCH_SPECS[3].revenue * OSAKA_MULT),
+    );
   });
 
   it('総資産 = 現金 − 借入 + 支店評価額', () => {
@@ -182,7 +190,7 @@ describe('gameStore — 景気・地域育成', () => {
     const before = s().players[0].cash;
     s().endTurn();
     expect(s().players[0].cash).toBe(
-      before + Math.round(BRANCH_SPECS[3].revenue * 1.2),
+      before + Math.round(BRANCH_SPECS[3].revenue * OSAKA_MULT * 1.2),
     );
   });
 
@@ -196,7 +204,7 @@ describe('gameStore — 景気・地域育成', () => {
     const before = s().players[0].cash;
     s().endTurn();
     expect(s().players[0].cash).toBe(
-      before + Math.round(BRANCH_SPECS[2].revenue * 1.3),
+      before + Math.round(BRANCH_SPECS[2].revenue * OSAKA_MULT * 1.3),
     );
   });
 
