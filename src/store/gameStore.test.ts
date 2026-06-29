@@ -1,5 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { useGameStore, MAX_TURN, economyMultiplier } from './gameStore';
+import {
+  useGameStore,
+  MAX_TURN,
+  START_CASH,
+  economyMultiplier,
+} from './gameStore';
 import { BRANCH_SPECS } from '@/game/branchSpec';
 import { EVENT_DECK } from '@/game/eventCards';
 import { CITIES } from '@/game/mapData';
@@ -117,8 +122,8 @@ describe('gameStore — 支店経済', () => {
     useGameStore.setState({
       branches: { osaka: { ownerId: 'p1', level: 1 } },
     });
-    // 評価額 Lv1 = 50万。現金は初期 300万。
-    expect(s().totalAssets('p1')).toBe(3_000_000 + BRANCH_SPECS[1].cost);
+    // 総資産 = 初期現金 + 支店評価額（Lv1）
+    expect(s().totalAssets('p1')).toBe(START_CASH + BRANCH_SPECS[1].cost);
   });
 });
 

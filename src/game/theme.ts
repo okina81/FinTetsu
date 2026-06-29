@@ -30,6 +30,7 @@ export const HEX = {
   mapGround: 0x141a2e,
   financeGold: 0xffd44d,
   telegraphBlue: 0x3dc6ff,
+  candyTeal: 0x36d6c3,
   marketRed: 0xff5d7a,
   offWhite: 0xf3f1ff,
   smokeGray: 0x9aa0c8,
