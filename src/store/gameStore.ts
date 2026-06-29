@@ -3,6 +3,8 @@ import type { Branch, GamePhase, Player } from '@/game/types';
 import { reachableDestinations, type MoveOption } from '@/game/pathfind';
 import { CITY_BY_ID, CITIES } from '@/game/mapData';
 import { PLAYER_COLORS, CITY_TYPE_LABEL } from '@/game/theme';
+import { CITY_TYPE_INFO } from '@/game/cityType';
+import type { CityType } from '@/game/types';
 import {
   BRANCH_SPECS,
   MAX_BRANCH_LEVEL,
@@ -90,17 +92,26 @@ function assetsOf(player: Player, branches: Record<string, Branch>): number {
 }
 
 /**
- * 1 支店のターン収益（景気・地域育成を反映）。
- * 収益 = 基本収益 × 景気倍率 × (1 + 育成段数 × ボーナス)。
+ * 1 支店のターン収益（都市タイプ・景気・地域育成を反映）。
+ * 収益 = 基本収益 × タイプ倍率 × 景気倍率 × (1 + 育成段数 × ボーナス)。
  */
 function branchRevenue(
   level: 1 | 2 | 3 | 4 | 5,
   economy: EconomyLevel,
   developLevel: number,
+  cityType: CityType,
 ): number {
   const base = BRANCH_SPECS[level].revenue;
-  const mult = economyMultiplier(economy) * (1 + developLevel * DEVELOP_BONUS);
+  const mult =
+    CITY_TYPE_INFO[cityType].revenueMult *
+    economyMultiplier(economy) *
+    (1 + developLevel * DEVELOP_BONUS);
   return Math.round(base * mult);
+}
+
+/** 都市タイプ補正を反映した支店設立費（過疎地域は安い）。 */
+function buildCostFor(cityType: CityType): number {
+  return Math.round(BRANCH_SPECS[1].cost * CITY_TYPE_INFO[cityType].buildMult);
 }
 
 export type GameStore = {
@@ -312,7 +323,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const me = players[currentPlayerIndex];
     const cid = me.position;
     if (branches[cid]) return; // 既に支店がある
-    const cost = BRANCH_SPECS[1].cost;
+    const cost = buildCostFor(CITY_BY_ID[cid]?.type ?? 'tourism');
     if (me.cash < cost) return;
     const cityName = CITY_BY_ID[cid]?.name ?? cid;
     set({
@@ -383,6 +394,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
           branches[cid].level,
           economy,
           develop[cid] ?? 0,
+          CITY_BY_ID[cid]?.type ?? 'tourism',
         );
       }
     }
@@ -545,7 +557,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       };
     }
     const b = branches[p.position];
-    const buildCost = BRANCH_SPECS[1].cost;
+    const buildCost = buildCostFor(CITY_BY_ID[p.position]?.type ?? 'tourism');
     const upCost = b ? upgradeCost(b.level) : 0;
     const ownsHere = !!b && b.ownerId === p.id;
     return {
