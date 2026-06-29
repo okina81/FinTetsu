@@ -11,6 +11,7 @@ import { useAudio } from '@/hooks/useAudio';
 import { useSettingsStore, GAME_SPEEDS } from '@/store/settingsStore';
 import { CITY_BY_ID } from '@/game/mapData';
 import { BRANCH_SPECS } from '@/game/branchSpec';
+import { CITY_TYPE_LABEL } from '@/game/theme';
 import { Mascot } from '@/components/Mascot';
 import { DiceButton } from '@/components/DiceButton';
 import { useCountUp } from '@/hooks/useCountUp';
@@ -67,6 +68,11 @@ export default function App() {
       <div className="flex min-h-0 flex-1">
         <main className="relative min-w-0 flex-1">
           <PhaserContainer />
+          {/* 操作ヒント */}
+          <div className="pointer-events-none absolute right-3 top-3 rounded-pop bg-blueberry-700/80 px-3 py-1.5 text-[11px] text-smoke-gray">
+            🖱️ ドラッグ:移動 ／ ホイール:ズーム ／ 駅クリック:情報
+          </div>
+          <CityPopup />
         </main>
 
         <aside className="hidden w-72 shrink-0 flex-col gap-4 overflow-y-auto bg-blueberry-700/60 p-4 lg:flex">
@@ -519,6 +525,90 @@ function VolumeSlider({
         className="w-full accent-finance-gold"
       />
     </label>
+  );
+}
+
+/** 都市情報ポップアップ（設計書 3-2）。駅クリックで表示。 */
+function CityPopup() {
+  const cityId = useGameStore((s) => s.inspectCityId);
+  const branches = useGameStore((s) => s.branches);
+  const develop = useGameStore((s) => s.develop);
+  const players = useGameStore((s) => s.players);
+  const inspectCity = useGameStore((s) => s.inspectCity);
+  if (!cityId) return null;
+  const city = CITY_BY_ID[cityId];
+  if (!city) return null;
+
+  const branch = branches[cityId];
+  const owner = branch
+    ? players.find((p) => p.id === branch.ownerId)
+    : undefined;
+  const spec = branch ? BRANCH_SPECS[branch.level] : null;
+  const dev = develop[cityId] ?? 0;
+
+  return (
+    <div className="pointer-events-auto absolute left-1/2 top-3 w-72 -translate-x-1/2 animate-pop-in rounded-pop border-2 border-finance-gold/70 bg-blueberry-700 p-4 shadow-pop-lg">
+      <div className="mb-2 flex items-start justify-between">
+        <div>
+          <h3 className="font-display text-lg text-off-white">{city.name}</h3>
+          <span className="text-[11px] text-candy-teal">
+            {CITY_TYPE_LABEL[city.type]}
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={() => inspectCity(null)}
+          className="rounded-full bg-blueberry-600 px-2 py-0.5 text-smoke-gray transition hover:text-off-white"
+        >
+          ✕
+        </button>
+      </div>
+
+      <div className="rounded-pop bg-blueberry-600 px-3 py-2 text-sm">
+        {branch && spec ? (
+          <>
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                <span
+                  className="inline-block h-2.5 w-2.5 rounded-full"
+                  style={{ backgroundColor: owner?.color }}
+                />
+                {owner?.name ?? '—'}
+              </span>
+              <span className="font-data text-finance-gold">
+                Lv{branch.level} {spec.name}
+              </span>
+            </div>
+            <div className="mt-1 flex items-center justify-between text-xs text-smoke-gray">
+              <span>収益 / 利用料</span>
+              <span className="font-data">
+                {formatMan(spec.revenue)} / {formatMan(spec.fee)}
+              </span>
+            </div>
+          </>
+        ) : (
+          <span className="text-xs text-smoke-gray">
+            未所有（支店を設立できる）
+          </span>
+        )}
+      </div>
+
+      <div className="mt-2 grid grid-cols-2 gap-2 text-[11px] text-smoke-gray">
+        <span>
+          人口指数{' '}
+          <span className="font-data text-off-white">{city.population}</span>
+        </span>
+        <span>
+          産業活力{' '}
+          <span className="font-data text-off-white">{city.industryIndex}</span>
+        </span>
+        {dev > 0 && (
+          <span className="col-span-2 text-leaf-green">
+            地域育成 {'🌱'.repeat(Math.min(dev, 3))} (+{dev * 15}% 収益)
+          </span>
+        )}
+      </div>
+    </div>
   );
 }
 

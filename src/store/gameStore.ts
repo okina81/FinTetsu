@@ -125,9 +125,13 @@ export type GameStore = {
   winnerId: string | null;
   /** タイトル画面を抜けてゲームを開始したか。 */
   started: boolean;
+  /** 情報ポップアップで表示中の都市 id（設計書 3-2）。 */
+  inspectCityId: string | null;
 
   // --- アクション ---
   startGame: () => void;
+  /** 都市情報ポップアップを開く / 閉じる。 */
+  inspectCity: (cityId: string | null) => void;
   rollDice: () => void;
   chooseDestination: (dest: string) => void;
   completeMove: () => void;
@@ -179,8 +183,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
   message: 'サイコロを振って移動しよう',
   winnerId: null,
   started: false,
+  inspectCityId: null,
 
   startGame: () => set({ started: true }),
+
+  inspectCity: (cityId) => set({ inspectCityId: cityId }),
 
   rollDice: () => {
     const { phase, players, currentPlayerIndex } = get();
@@ -201,7 +208,12 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (phase !== 'select') return;
     const move = options.find((o) => o.dest === dest);
     if (!move) return;
-    set({ pendingMove: move, phase: 'moving', options: [] });
+    set({
+      pendingMove: move,
+      phase: 'moving',
+      options: [],
+      inspectCityId: null,
+    });
   },
 
   completeMove: () => {
@@ -463,6 +475,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       message: 'サイコロを振って移動しよう',
       winnerId: null,
       started: true, // リプレイはタイトルを経由せず即開始
+      inspectCityId: null,
     }),
 
   saveGame: () => {

@@ -168,7 +168,17 @@ export class GameScene extends Phaser.Scene {
       if (moved < 8) {
         const wp = cam.getWorldPoint(p.x, p.y);
         const city = this.nearestCity(wp.x, wp.y, 24);
-        if (city) useGameStore.getState().chooseDestination(city.id);
+        const st = useGameStore.getState();
+        if (!city) {
+          st.inspectCity(null); // 空クリックでポップアップを閉じる
+        } else if (
+          st.phase === 'select' &&
+          st.options.some((o) => o.dest === city.id)
+        ) {
+          st.chooseDestination(city.id); // 移動先として選択
+        } else {
+          st.inspectCity(city.id); // それ以外は情報ポップアップ
+        }
       }
     });
     this.input.on(
