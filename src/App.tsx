@@ -184,7 +184,15 @@ function EventModal() {
   );
 }
 
-/** プレイヤー資産カード。現在手番は枠を光らせる。 */
+/** 信用格付けの表示色（健全＝緑〜危険＝赤）。 */
+function ratingColor(rating: string): string {
+  if (rating.startsWith('AAA') || rating.startsWith('AA')) return '#5fd97a';
+  if (rating.startsWith('A') || rating.startsWith('BBB')) return '#3dc6ff';
+  if (rating.startsWith('BB') || rating === 'B') return '#ffd44d';
+  return '#ff5d7a'; // CCC / D
+}
+
+/** プレイヤー資産カード。現在手番は枠を光らせ、自己資本比率・格付・借入を示す。 */
 function PlayerCard({
   player,
   assets,
@@ -194,18 +202,31 @@ function PlayerCard({
   assets: number;
   active: boolean;
 }) {
+  const capital = useGameStore((s) => s.capital);
+  const debtOf = useGameStore((s) => s.debtOf);
   const city = CITY_BY_ID[player.position];
   const assetsAnim = useCountUp(assets);
   const cashAnim = useCountUp(player.cash);
+
+  const { ratio, rating } = capital(player.id);
+  const debt = debtOf(player.id);
+  const rColor = ratingColor(rating);
+  const danger = !player.bankrupt && ratio < 0.08; // 規制ライン割れ
+
   return (
     <div
       className="rounded-pop border-2 bg-blueberry-600 p-2.5 transition"
       style={{
-        borderColor: active ? player.color : 'rgba(255,255,255,0.08)',
+        borderColor: player.bankrupt
+          ? 'rgba(255,93,122,0.5)'
+          : active
+            ? player.color
+            : 'rgba(255,255,255,0.08)',
         boxShadow: active
           ? `0 4px 0 rgba(0,0,0,0.25), 0 0 16px ${player.color}88`
           : '0 4px 0 rgba(0,0,0,0.25)',
         transform: active ? 'translateY(-1px)' : 'none',
+        opacity: player.bankrupt ? 0.5 : 1,
       }}
     >
       <div className="flex items-center justify-between text-sm">
@@ -218,16 +239,36 @@ function PlayerCard({
           </span>
           {player.name}
         </span>
-        <span className="font-data text-[11px] text-smoke-gray">
-          {city?.name ?? '—'}
-        </span>
+        {player.bankrupt ? (
+          <span className="rounded-full bg-market-red/80 px-2 py-0.5 font-data text-[10px] font-bold text-white">
+            💥 破綻
+          </span>
+        ) : (
+          <span
+            className="rounded-full px-2 py-0.5 font-data text-[10px] font-bold"
+            style={{ backgroundColor: `${rColor}22`, color: rColor }}
+            title={`自己資本比率 ${Math.round(ratio * 100)}%`}
+          >
+            {rating}
+          </span>
+        )}
       </div>
       <div className="font-data text-lg font-bold text-finance-gold">
         {formatMan(assetsAnim)}
       </div>
-      <div className="font-data text-[11px] text-smoke-gray">
-        現金 {formatMan(cashAnim)}
+      <div className="flex items-center justify-between font-data text-[11px] text-smoke-gray">
+        <span>現金 {formatMan(cashAnim)}</span>
+        <span>{city?.name ?? '—'}</span>
       </div>
+      {debt > 0 && (
+        <div
+          className="mt-1 flex items-center justify-between font-data text-[11px]"
+          style={{ color: danger ? '#ff5d7a' : '#9aa0c8' }}
+        >
+          <span>借入 {formatMan(debt)}</span>
+          <span>自己資本 {Math.round(ratio * 100)}%</span>
+        </div>
+      )}
     </div>
   );
 }

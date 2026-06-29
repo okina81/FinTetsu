@@ -63,6 +63,23 @@ export type Player = {
   position: string;
   cash: number;
   debt: number;
+  /** 破綻（デフォルト）済みか。連鎖倒産で脱落するとターンから外れる。 */
+  bankrupt: boolean;
+};
+
+/**
+ * インターバンク（銀行間）融資の 1 本。債権者 creditor が債務者 debtor に
+ * principal を貸している状態を表す有向エッジ。これらのエッジの網が、
+ * そのままデフォルト連鎖（システミックリスク）の伝播経路になる。
+ */
+export type InterbankLoan = {
+  id: string;
+  /** 貸し手（このプレイヤーの資産＝債権）。 */
+  creditorId: string;
+  /** 借り手（このプレイヤーの負債）。 */
+  debtorId: string;
+  /** 元本（円）。 */
+  principal: number;
 };
 
 /** 都市に建つ支店。レベル 1〜5。 */

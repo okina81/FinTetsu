@@ -3,6 +3,7 @@ import {
   useGameStore,
   MAX_TURN,
   START_CASH,
+  CAPITAL_FLOOR,
   economyMultiplier,
 } from './gameStore';
 import { BRANCH_SPECS } from '@/game/branchSpec';
@@ -292,6 +293,96 @@ describe('gameStore — イベントカード', () => {
     s().applyEventCard();
     // inbound = 観光都市の develop +1
     expect(s().develop[tourismCity.id]).toBe(1);
+  });
+});
+
+describe('gameStore — インターバンク / 連鎖倒産', () => {
+  beforeEach(() => s().reset());
+  afterEach(() => vi.restoreAllMocks());
+
+  it('現金が足りず利用料を払うと銀行間市場から自動借入する', () => {
+    // p1 は現金わずか + 高額支店を保有（純資産は黒字＝破綻しない）。
+    // Lv4 支店（利用料 150万）に止まり、不足分を他行から借りる。
+    useGameStore.setState({
+      phase: 'moving',
+      players: s().players.map((p) =>
+        p.id === 'p1' ? { ...p, cash: 100_000 } : p,
+      ),
+      branches: {
+        tokyo: { ownerId: 'p2', level: 4 },
+        osaka: { ownerId: 'p1', level: 4 }, // p1 のクッション資産
+      },
+      pendingMove: { dest: 'tokyo', path: ['osaka', 'tokyo'] },
+    });
+
+    s().completeMove();
+
+    const p1 = s().players[0];
+    expect(p1.bankrupt).toBe(false); // 支店評価額があるので破綻しない
+    expect(p1.cash).toBe(0); // 不足分は借入で 0 に
+    expect(s().debtOf('p1')).toBeGreaterThan(0); // 借入が発生
+    // 借入総額 = 利用料 150万 − 手持ち 10万 = 140万
+    expect(s().debtOf('p1')).toBe(BRANCH_SPECS[4].fee - 100_000);
+  });
+
+  it('債務超過の行が破綻すると、貸していた行へ損失が連鎖する', () => {
+    // p1 → p2 → p3 の与信チェーン。p1 が債務超過なら p2 も債権を失い連鎖破綻。
+    useGameStore.setState({
+      phase: 'action',
+      currentPlayerIndex: 3, // 手番は無関係な p4
+      branches: {},
+      players: s().players.map((p) => ({ ...p, cash: 0 })),
+      loans: [
+        { id: 'a', creditorId: 'p2', debtorId: 'p1', principal: 10_000_000 },
+        { id: 'b', creditorId: 'p3', debtorId: 'p2', principal: 9_000_000 },
+      ],
+    });
+
+    s().endTurn();
+
+    const byId = (id: string) => s().players.find((p) => p.id === id)!;
+    expect(byId('p1').bankrupt).toBe(true); // 起点の債務超過
+    expect(byId('p2').bankrupt).toBe(true); // 債権喪失で連鎖破綻
+    expect(byId('p3').bankrupt).toBe(false); // 損失は出すが生存
+    expect(byId('p4').bankrupt).toBe(false);
+    expect(s().loans).toHaveLength(0); // 破綻に絡むローンは消滅
+  });
+
+  it('自分以外が全員破綻すると最後の1行が勝利する', () => {
+    useGameStore.setState({
+      phase: 'action',
+      currentPlayerIndex: 0,
+      branches: {},
+      // p2,p3,p4 を債務超過にして p1 に貸し付けさせる
+      players: s().players.map((p) => ({ ...p, cash: 0 })),
+      loans: [
+        { id: 'a', creditorId: 'p1', debtorId: 'p2', principal: 5_000_000 },
+        { id: 'b', creditorId: 'p1', debtorId: 'p3', principal: 5_000_000 },
+        { id: 'c', creditorId: 'p1', debtorId: 'p4', principal: 5_000_000 },
+      ],
+    });
+
+    s().endTurn();
+
+    expect(s().phase).toBe('gameover');
+    expect(s().winnerId).toBe('p1');
+  });
+
+  it('自己資本比率と格付け：無借金は AAA、過剰債務は低格付け', () => {
+    useGameStore.setState({
+      branches: { osaka: { ownerId: 'p1', level: 1 } },
+      loans: [],
+    });
+    expect(s().capital('p1').rating).toBe('AAA');
+    expect(s().capital('p1').ratio).toBeCloseTo(1, 5);
+
+    // p1 に多額の借入を負わせると比率が下がる
+    useGameStore.setState({
+      loans: [
+        { id: 'x', creditorId: 'p2', debtorId: 'p1', principal: 4_500_000 },
+      ],
+    });
+    expect(s().capital('p1').ratio).toBeLessThan(CAPITAL_FLOOR + 0.2);
   });
 });
 
