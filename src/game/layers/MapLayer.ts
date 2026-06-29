@@ -25,6 +25,8 @@ export class MapLayer {
   private landGfx!: Phaser.GameObjects.Graphics;
   private coastGfx!: Phaser.GameObjects.Graphics;
   private routeGfx!: Phaser.GameObjects.Graphics;
+  private ferryGfx!: Phaser.GameObjects.Graphics;
+  private readonly ferryMarkers: Phaser.GameObjects.Text[] = [];
   private nodesGfx!: Phaser.GameObjects.Graphics;
   /** 主要駅ラベル（常時表示）。 */
   private readonly labels: Phaser.GameObjects.Text[] = [];
@@ -44,6 +46,8 @@ export class MapLayer {
   private static readonly LABEL_POP = 60;
   /** minor 駅ラベルを表示し始めるズーム倍率。 */
   private static readonly LOD_ZOOM = 0.95;
+  /** これより長い区間はフェリー航路として破線描画する（px）。 */
+  private static readonly FERRY_LEN = 300;
   private static readonly LAND_FILL = 0x101b2e;
 
   constructor(scene: Phaser.Scene) {
@@ -93,6 +97,7 @@ export class MapLayer {
 
   /** 全路線を 1 枚にまとめて描き、ネオングロウを付与する。 */
   private drawRoutes(): void {
+    // 陸路（実線・ネオン）
     const gfx = this.scene.add.graphics();
     gfx.lineStyle(4, HEX.telegraphBlue, 0.22);
     this.strokeAllRoutes(gfx);
@@ -101,17 +106,73 @@ export class MapLayer {
     this.applyGlow(gfx, HEX.telegraphBlue, 3);
     this.routeGfx = gfx;
     this.container.add(gfx);
+
+    this.drawFerryRoutes();
+  }
+
+  /** 区間が長い路線は「フェリー航路」とみなす（沖縄連絡線など）。 */
+  private isFerry(a: { x: number; y: number }, b: { x: number; y: number }) {
+    return Math.hypot(a.x - b.x, a.y - b.y) > MapLayer.FERRY_LEN;
   }
 
   private strokeAllRoutes(gfx: Phaser.GameObjects.Graphics): void {
     for (const route of ROUTES) {
       const a = CITY_BY_ID[route.from];
       const b = CITY_BY_ID[route.to];
-      if (!a || !b) continue;
+      if (!a || !b || this.isFerry(a, b)) continue; // フェリーは別描画
       gfx.beginPath();
       gfx.moveTo(a.x, a.y);
       gfx.lineTo(b.x, b.y);
       gfx.strokePath();
+    }
+  }
+
+  /** フェリー航路：破線＋中点に⛴マーカー。 */
+  private drawFerryRoutes(): void {
+    const gfx = this.scene.add.graphics();
+    gfx.lineStyle(2.5, HEX.candyTeal, 0.8);
+    for (const route of ROUTES) {
+      const a = CITY_BY_ID[route.from];
+      const b = CITY_BY_ID[route.to];
+      if (!a || !b || !this.isFerry(a, b)) continue;
+      this.dashedLine(gfx, a.x, a.y, b.x, b.y, 16, 12);
+      const mx = (a.x + b.x) / 2;
+      const my = (a.y + b.y) / 2;
+      const m = this.scene.add
+        .text(mx, my, '⛴', { fontSize: '22px' })
+        .setOrigin(0.5);
+      this.container.add(m);
+      this.ferryMarkers.push(m);
+    }
+    this.applyGlow(gfx, HEX.candyTeal, 2);
+    this.ferryGfx = gfx;
+    this.container.add(gfx);
+  }
+
+  /** 破線を引く。 */
+  private dashedLine(
+    gfx: Phaser.GameObjects.Graphics,
+    x1: number,
+    y1: number,
+    x2: number,
+    y2: number,
+    dash: number,
+    gap: number,
+  ): void {
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const len = Math.hypot(dx, dy);
+    const ux = dx / len;
+    const uy = dy / len;
+    let pos = 0;
+    while (pos < len) {
+      const s = pos;
+      const e = Math.min(pos + dash, len);
+      gfx.beginPath();
+      gfx.moveTo(x1 + ux * s, y1 + uy * s);
+      gfx.lineTo(x1 + ux * e, y1 + uy * e);
+      gfx.strokePath();
+      pos += dash + gap;
     }
   }
 
@@ -217,6 +278,8 @@ export class MapLayer {
     this.coastGfx?.destroy();
     this.routeGfx?.destroy();
     this.nodesGfx?.destroy();
+    this.ferryGfx?.destroy();
+    this.ferryMarkers.forEach((t) => t.destroy());
     this.labels.forEach((t) => t.destroy());
     this.minorLabels.forEach((t) => t.destroy());
     this.ownedRouteGfxById.forEach((g) => g.destroy());

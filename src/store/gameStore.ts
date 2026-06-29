@@ -35,7 +35,8 @@ type SavedGame = {
  */
 
 const MAX_TURN = 100;
-const START_CASH = 3_000_000; // 地方銀行スタート（300万）
+// 350駅規模では1物件あたりの比重が小さいため、序盤の機動力を上げる（500万）
+const START_CASH = 5_000_000;
 const VICTORY_ASSETS = 100_000_000; // 特殊勝利：総資産1億円
 
 /** 地域育成「産業育成」1 回の費用（100万）。 */
@@ -551,4 +552,4 @@ export function formatMan(yen: number): string {
   return `¥${man.toLocaleString('ja-JP')}万`;
 }
 
-export { MAX_TURN, VICTORY_ASSETS };
+export { MAX_TURN, VICTORY_ASSETS, START_CASH };
