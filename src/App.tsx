@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { PhaserContainer } from '@/components/PhaserContainer';
 import {
   useGameStore,
@@ -16,8 +16,13 @@ import { CITY_TYPE_INFO } from '@/game/cityType';
 import type { CityType } from '@/game/types';
 import { Mascot } from '@/components/Mascot';
 import { DiceButton } from '@/components/DiceButton';
+import { HowToPlay } from '@/components/HowToPlay';
 import { useCountUp } from '@/hooks/useCountUp';
+import { storage } from '@/lib/persist';
 import type { Player } from '@/game/types';
+
+/** 遊び方ガイドを既読にしたか（初回自動表示の管理キー）。 */
+const SEEN_GUIDE_KEY = 'fintetsu:seen-guide';
 
 /**
  * 実装設計書 3-1 メイン画面 + Step 5–7 のゲームループ UI。
@@ -39,6 +44,17 @@ export default function App() {
   const started = useGameStore((s) => s.started);
 
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false);
+
+  // 初回起動時は遊び方ガイドを自動表示する
+  useEffect(() => {
+    if (storage.get(SEEN_GUIDE_KEY) == null) setGuideOpen(true);
+  }, []);
+
+  const closeGuide = () => {
+    storage.set(SEEN_GUIDE_KEY, '1');
+    setGuideOpen(false);
+  };
 
   return (
     <div className="flex h-full w-full flex-col bg-midnight-navy text-off-white">
@@ -55,6 +71,14 @@ export default function App() {
             ターン <span className="text-off-white">{turn}</span>/{MAX_TURN}
           </span>
           <EconomyGauge />
+          <button
+            type="button"
+            aria-label="遊び方"
+            onClick={() => setGuideOpen(true)}
+            className="rounded-full bg-blueberry-600 px-3 py-1.5 text-off-white shadow-pop transition hover:brightness-110 active:translate-y-0.5"
+          >
+            ？
+          </button>
           <button
             type="button"
             aria-label="設定"
@@ -104,8 +128,9 @@ export default function App() {
 
       {phase === 'event' && <EventModal />}
       {phase === 'gameover' && <ResultOverlay />}
-      {!started && <TitleOverlay />}
+      {!started && <TitleOverlay onShowGuide={() => setGuideOpen(true)} />}
       {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
+      {guideOpen && <HowToPlay onClose={closeGuide} />}
     </div>
   );
 }
@@ -406,7 +431,7 @@ function EconomyGauge() {
 }
 
 /** タイトル画面。ゲーム開始までマップ上に重ねる。 */
-function TitleOverlay() {
+function TitleOverlay({ onShowGuide }: { onShowGuide: () => void }) {
   const startGame = useGameStore((s) => s.startGame);
   const loadGame = useGameStore((s) => s.loadGame);
   const hasSavedGame = useGameStore((s) => s.hasSavedGame);
@@ -447,6 +472,13 @@ function TitleOverlay() {
             📂 つづきから
           </button>
         )}
+        <button
+          type="button"
+          onClick={onShowGuide}
+          className="rounded-pop bg-blueberry-600 px-8 py-2 text-sm font-bold text-off-white shadow-pop transition hover:brightness-110 active:translate-y-0.5"
+        >
+          📖 遊び方
+        </button>
       </div>
       <p className="mt-6 rounded-full bg-blueberry-600/70 px-4 py-1 font-data text-[11px] text-smoke-gray">
         あなた + CPU銀行 3行 ／ 100ターン or 総資産1億円で決着
