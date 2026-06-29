@@ -61,7 +61,7 @@ export const CITY_TYPE_LABEL: Record<string, string> = {
   industrial: '工業都市',
   tourism: '観光都市',
   agriculture: '農業都市',
-  financial: '金融都市',
+  financial: '商業都市',
   rural: '過疎地域',
 };
 

@@ -26,8 +26,8 @@ const SEEN_GUIDE_KEY = 'fintetsu:seen-guide';
 
 /**
  * 実装設計書 3-1 メイン画面 + Step 5–7 のゲームループ UI。
- * 上部バー / Phaser マップ / 右 HUD（全プレイヤー資産・支店一覧）/
- * 下部アクションバー（サイコロ・支店設立/強化・ターン終了）を
+ * 上部バー / Phaser マップ / 右 HUD（全プレイヤー資産・拠点一覧）/
+ * 下部アクションバー（サイコロ・出店/強化・ターン終了）を
  * Zustand ストアに接続し、CPU の番は useCpuController が自動進行する。
  */
 export default function App() {
@@ -203,15 +203,15 @@ function PlayerCard({
   active: boolean;
 }) {
   const capital = useGameStore((s) => s.capital);
-  const debtOf = useGameStore((s) => s.debtOf);
+  const payableOf = useGameStore((s) => s.payableOf);
   const city = CITY_BY_ID[player.position];
   const assetsAnim = useCountUp(assets);
   const cashAnim = useCountUp(player.cash);
 
   const { ratio, rating } = capital(player.id);
-  const debt = debtOf(player.id);
+  const payable = payableOf(player.id);
   const rColor = ratingColor(rating);
-  const danger = !player.bankrupt && ratio < 0.08; // 規制ライン割れ
+  const danger = !player.bankrupt && ratio < 0.08; // 危険ライン割れ
 
   return (
     <div
@@ -241,7 +241,7 @@ function PlayerCard({
         </span>
         {player.bankrupt ? (
           <span className="rounded-full bg-market-red/80 px-2 py-0.5 font-data text-[10px] font-bold text-white">
-            💥 破綻
+            💥 倒産
           </span>
         ) : (
           <span
@@ -260,12 +260,12 @@ function PlayerCard({
         <span>現金 {formatMan(cashAnim)}</span>
         <span>{city?.name ?? '—'}</span>
       </div>
-      {debt > 0 && (
+      {payable > 0 && (
         <div
           className="mt-1 flex items-center justify-between font-data text-[11px]"
           style={{ color: danger ? '#ff5d7a' : '#9aa0c8' }}
         >
-          <span>借入 {formatMan(debt)}</span>
+          <span>買掛金 {formatMan(payable)}</span>
           <span>自己資本 {Math.round(ratio * 100)}%</span>
         </div>
       )}
@@ -273,7 +273,7 @@ function PlayerCard({
   );
 }
 
-/** 指定プレイヤーの支店一覧。 */
+/** 指定プレイヤーの拠点一覧。 */
 function BranchList({
   ownerId,
   branches,
@@ -288,10 +288,10 @@ function BranchList({
   );
   return (
     <section>
-      <h2 className="mb-2 font-display text-sm text-candy-teal">🏦 支店一覧</h2>
+      <h2 className="mb-2 font-display text-sm text-candy-teal">🏪 拠点一覧</h2>
       {owned.length === 0 ? (
         <p className="rounded-pop bg-blueberry-600/60 px-3 py-2 text-xs text-smoke-gray">
-          まだ支店がありません
+          まだ拠点がありません
         </p>
       ) : (
         <ul className="flex flex-col gap-1.5">
@@ -325,7 +325,7 @@ function BranchList({
   );
 }
 
-/** 凡例：マスの色と効果（収益倍率・設立費）の対応表。 */
+/** 凡例：マスの色と効果（収益倍率・出店費）の対応表。 */
 const LEGEND_ORDER: CityType[] = [
   'financial',
   'industrial',
@@ -366,7 +366,7 @@ function Legend() {
                 <span className="flex items-center gap-1.5 font-data">
                   <span style={{ color: tagColor }}>収益 {tag}</span>
                   {info.buildMult < 1 && (
-                    <span className="text-candy-teal">設立費安</span>
+                    <span className="text-candy-teal">出店費安</span>
                   )}
                 </span>
               </div>
@@ -419,12 +419,12 @@ function ActionBar() {
 
       {isHuman && phase === 'action' && a.canBuild && (
         <button type="button" onClick={buildBranch} className={ghost}>
-          🏗️ 支店を設立 {formatMan(a.buildCost)}
+          🏗️ 出店する {formatMan(a.buildCost)}
         </button>
       )}
       {isHuman && phase === 'action' && a.canUpgrade && (
         <button type="button" onClick={upgradeBranch} className={ghost}>
-          ⬆️ 支店を強化 {formatMan(a.upgradeCost)}
+          ⬆️ 拠点を強化 {formatMan(a.upgradeCost)}
         </button>
       )}
       {isHuman && phase === 'action' && a.canDevelop && (
@@ -492,9 +492,9 @@ function TitleOverlay({ onShowGuide }: { onShowGuide: () => void }) {
       </h1>
       <p className="mt-2 font-display text-2xl text-candy-pink">フィン鉄</p>
       <p className="mt-5 max-w-md text-center text-sm leading-relaxed text-off-white/90">
-        日本全国を巡り、銀行支店を買収・経営して
+        中小企業の社長として全国に出店し、取引を広げて
         <br />
-        地域経済を育て、資産日本一を目指せ！
+        会社を育て、資産日本一を目指せ！
       </p>
       <div className="mt-8 flex flex-col items-center gap-3">
         <button
@@ -522,7 +522,7 @@ function TitleOverlay({ onShowGuide }: { onShowGuide: () => void }) {
         </button>
       </div>
       <p className="mt-6 rounded-full bg-blueberry-600/70 px-4 py-1 font-data text-[11px] text-smoke-gray">
-        あなた + CPU銀行 3行 ／ 100ターン or 総資産1億円で決着
+        あなた + ライバル社長 3人 ／ 100ターン or 総資産1億円で決着
       </p>
     </div>
   );
@@ -737,7 +737,7 @@ function CityPopup() {
               </span>
             </div>
             <div className="mt-1 flex items-center justify-between text-xs text-smoke-gray">
-              <span>収益 / 利用料</span>
+              <span>収益 / 取引額</span>
               <span className="font-data">
                 {formatMan(spec.revenue)} / {formatMan(spec.fee)}
               </span>
@@ -745,9 +745,9 @@ function CityPopup() {
           </>
         ) : (
           <div className="flex items-center justify-between text-xs text-smoke-gray">
-            <span>未所有（支店を設立できる）</span>
+            <span>未出店（ここに出店できる）</span>
             <span className="font-data text-finance-gold">
-              設立費 {formatMan(buildCost)}
+              出店費 {formatMan(buildCost)}
             </span>
           </div>
         )}

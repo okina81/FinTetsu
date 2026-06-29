@@ -126,12 +126,12 @@ describe('gameStore — 支店経済', () => {
     );
   });
 
-  it('総資産 = 現金 − 借入 + 支店評価額', () => {
+  it('総資産 = 現金 + 拠点評価額 + 売掛金 − 買掛金', () => {
     s().reset();
     useGameStore.setState({
       branches: { osaka: { ownerId: 'p1', level: 1 } },
     });
-    // 総資産 = 初期現金 + 支店評価額（Lv1）
+    // 総資産 = 初期現金 + 拠点評価額（Lv1）
     expect(s().totalAssets('p1')).toBe(START_CASH + BRANCH_SPECS[1].cost);
   });
 });
@@ -296,13 +296,13 @@ describe('gameStore — イベントカード', () => {
   });
 });
 
-describe('gameStore — インターバンク / 連鎖倒産', () => {
+describe('gameStore — 取引信用 / 連鎖倒産', () => {
   beforeEach(() => s().reset());
   afterEach(() => vi.restoreAllMocks());
 
-  it('現金が足りず利用料を払うと銀行間市場から自動借入する', () => {
-    // p1 は現金わずか + 高額支店を保有（純資産は黒字＝破綻しない）。
-    // Lv4 支店（利用料 150万）に止まり、不足分を他行から借りる。
+  it('現金が足りず取引代金を払えないと不足分が買掛金になる', () => {
+    // p1 は現金わずか + 高額拠点を保有（純資産は黒字＝倒産しない）。
+    // 他社の Lv4 拠点（取引額 150万）で取引し、足りない分は掛け（買掛金）に。
     useGameStore.setState({
       phase: 'moving',
       players: s().players.map((p) =>
@@ -318,23 +318,26 @@ describe('gameStore — インターバンク / 連鎖倒産', () => {
     s().completeMove();
 
     const p1 = s().players[0];
-    expect(p1.bankrupt).toBe(false); // 支店評価額があるので破綻しない
-    expect(p1.cash).toBe(0); // 不足分は借入で 0 に
-    expect(s().debtOf('p1')).toBeGreaterThan(0); // 借入が発生
-    // 借入総額 = 利用料 150万 − 手持ち 10万 = 140万
-    expect(s().debtOf('p1')).toBe(BRANCH_SPECS[4].fee - 100_000);
+    expect(p1.bankrupt).toBe(false); // 拠点評価額があるので倒産しない
+    expect(p1.cash).toBe(0); // 現金で払える分は払い 0 に
+    expect(s().payableOf('p1')).toBeGreaterThan(0); // 買掛金が発生
+    // 買掛金 = 取引額 150万 − 手持ち 10万 = 140万
+    expect(s().payableOf('p1')).toBe(BRANCH_SPECS[4].fee - 100_000);
+    // 売り手 p2 は同額の売掛金を持つ
+    expect(s().totalAssets('p2')).toBeGreaterThan(0);
   });
 
-  it('債務超過の行が破綻すると、貸していた行へ損失が連鎖する', () => {
-    // p1 → p2 → p3 の与信チェーン。p1 が債務超過なら p2 も債権を失い連鎖破綻。
+  it('債務超過の会社が倒産すると、売掛金を持つ取引先へ損失が連鎖する', () => {
+    // p1→p2→p3 の取引信用チェーン（矢印は売り手→買い手）。
+    // buyer の p1 が債務超過なら supplier の p2 も売掛金を失い連鎖倒産。
     useGameStore.setState({
       phase: 'action',
       currentPlayerIndex: 3, // 手番は無関係な p4
       branches: {},
       players: s().players.map((p) => ({ ...p, cash: 0 })),
-      loans: [
-        { id: 'a', creditorId: 'p2', debtorId: 'p1', principal: 10_000_000 },
-        { id: 'b', creditorId: 'p3', debtorId: 'p2', principal: 9_000_000 },
+      credits: [
+        { id: 'a', supplierId: 'p2', buyerId: 'p1', amount: 10_000_000 },
+        { id: 'b', supplierId: 'p3', buyerId: 'p2', amount: 9_000_000 },
       ],
     });
 
@@ -342,23 +345,23 @@ describe('gameStore — インターバンク / 連鎖倒産', () => {
 
     const byId = (id: string) => s().players.find((p) => p.id === id)!;
     expect(byId('p1').bankrupt).toBe(true); // 起点の債務超過
-    expect(byId('p2').bankrupt).toBe(true); // 債権喪失で連鎖破綻
+    expect(byId('p2').bankrupt).toBe(true); // 売掛金焦げ付きで連鎖倒産
     expect(byId('p3').bankrupt).toBe(false); // 損失は出すが生存
     expect(byId('p4').bankrupt).toBe(false);
-    expect(s().loans).toHaveLength(0); // 破綻に絡むローンは消滅
+    expect(s().credits).toHaveLength(0); // 倒産に絡む取引信用は消滅
   });
 
-  it('自分以外が全員破綻すると最後の1行が勝利する', () => {
+  it('自分以外が全社倒産すると最後の1社が勝利する', () => {
     useGameStore.setState({
       phase: 'action',
       currentPlayerIndex: 0,
       branches: {},
-      // p2,p3,p4 を債務超過にして p1 に貸し付けさせる
+      // p2,p3,p4 が p1 への買掛金だけを抱えて債務超過（＝p1 の売掛金は焦げ付く）
       players: s().players.map((p) => ({ ...p, cash: 0 })),
-      loans: [
-        { id: 'a', creditorId: 'p1', debtorId: 'p2', principal: 5_000_000 },
-        { id: 'b', creditorId: 'p1', debtorId: 'p3', principal: 5_000_000 },
-        { id: 'c', creditorId: 'p1', debtorId: 'p4', principal: 5_000_000 },
+      credits: [
+        { id: 'a', supplierId: 'p1', buyerId: 'p2', amount: 5_000_000 },
+        { id: 'b', supplierId: 'p1', buyerId: 'p3', amount: 5_000_000 },
+        { id: 'c', supplierId: 'p1', buyerId: 'p4', amount: 5_000_000 },
       ],
     });
 
@@ -368,18 +371,18 @@ describe('gameStore — インターバンク / 連鎖倒産', () => {
     expect(s().winnerId).toBe('p1');
   });
 
-  it('自己資本比率と格付け：無借金は AAA、過剰債務は低格付け', () => {
+  it('自己資本比率と格付け：無借金は AAA、過大な買掛金で低格付け', () => {
     useGameStore.setState({
       branches: { osaka: { ownerId: 'p1', level: 1 } },
-      loans: [],
+      credits: [],
     });
     expect(s().capital('p1').rating).toBe('AAA');
     expect(s().capital('p1').ratio).toBeCloseTo(1, 5);
 
-    // p1 に多額の借入を負わせると比率が下がる
+    // p1 に多額の買掛金を負わせると比率が下がる
     useGameStore.setState({
-      loans: [
-        { id: 'x', creditorId: 'p2', debtorId: 'p1', principal: 4_500_000 },
+      credits: [
+        { id: 'x', supplierId: 'p2', buyerId: 'p1', amount: 4_500_000 },
       ],
     });
     expect(s().capital('p1').ratio).toBeLessThan(CAPITAL_FLOOR + 0.2);

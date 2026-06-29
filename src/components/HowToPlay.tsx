@@ -30,7 +30,8 @@ const PAGES: Page[] = [
     title: 'ゲームの目的',
     body: (
       <>
-        日本全国を巡り、銀行支店を経営して資産日本一を目指すボードゲームです。
+        あなたは中小企業の社長。全国に出店し、取引を広げて会社を大きくし、
+        資産日本一を目指すボードゲームです。
         <ul className="mt-3 flex flex-col gap-1.5 text-left">
           <li>
             🏆 <span className="font-bold text-finance-gold">総資産1億円</span>{' '}
@@ -40,7 +41,7 @@ const PAGES: Page[] = [
             ⏳ <span className="font-bold">100ターン</span>{' '}
             終了時に総資産トップでも勝利
           </li>
-          <li>🤖 あなた ＋ CPU銀行3行 で競います</li>
+          <li>🤖 あなた ＋ ライバル社長3人 で競います</li>
         </ul>
       </>
     ),
@@ -62,38 +63,63 @@ const PAGES: Page[] = [
     ),
   },
   {
-    icon: '🏦',
-    title: '支店を経営する',
+    icon: '🏪',
+    title: '出店して会社を育てる',
     body: (
       <>
-        止まった駅では、自分の番に支店の経営ができます。
+        止まった駅では、自分の番に拠点（店舗）の経営ができます。
         <ul className="mt-3 flex flex-col gap-1.5 text-left">
           <li>
-            🏗️ <span className="font-bold">設立</span>：未所有の駅に支店を建てる
+            🏗️ <span className="font-bold">出店</span>：未出店の駅に拠点を構える
           </li>
           <li>
             ⬆️ <span className="font-bold">強化</span>
-            ：自分の支店をLv5まで育てて収益UP
+            ：自社の拠点を本社（Lv5）まで育てて収益UP
           </li>
           <li>
             🌱 <span className="font-bold">地域育成</span>
             ：費用を払って収益をさらにブースト
           </li>
           <li>
-            💸 <span className="font-bold text-market-red">利用料</span>
-            ：他人の支店に止まると料金を支払います
+            💸 <span className="font-bold text-market-red">取引額</span>
+            ：他社の拠点に止まると仕入れ・利用代金を支払います
           </li>
         </ul>
       </>
     ),
   },
   {
-    icon: '🎨',
-    title: 'マスの色＝収益効果',
+    icon: '⛓️',
+    title: '取引信用と連鎖倒産',
     body: (
       <>
-        駅の色は都市タイプを表し、支店の
-        <span className="font-bold">毎ターン収益</span>に影響します。
+        代金を現金で払いきれないと、不足分は
+        <span className="font-bold">買掛金</span>
+        （後払い）になります。ここが勝負の肝。
+        <ul className="mt-3 flex flex-col gap-1.5 text-left">
+          <li>
+            📊 <span className="font-bold">自己資本比率・格付</span>
+            （AAA〜D）で会社の健全度が一目で分かります
+          </li>
+          <li>
+            💸 買掛金には毎ターン金利相当のコストがかかり、資金繰りを圧迫します
+          </li>
+          <li>
+            💥 <span className="font-bold text-market-red">連鎖倒産</span>
+            ：取引先が倒産すると売掛金が焦げ付き、あなたまで倒れることも
+          </li>
+          <li>🏆 ライバルが全社倒産すれば、生き残ったあなたの勝ち</li>
+        </ul>
+      </>
+    ),
+  },
+  {
+    icon: '🎨',
+    title: 'マスの色＝売上効果',
+    body: (
+      <>
+        駅の色は都市タイプを表し、拠点の
+        <span className="font-bold">毎ターン売上</span>に影響します。
         <ul className="mt-3 flex flex-col gap-1.5 text-left">
           {LEGEND_ORDER.map((type) => {
             const info = CITY_TYPE_INFO[type];
@@ -111,10 +137,10 @@ const PAGES: Page[] = [
                 />
                 <span className="font-bold">{CITY_TYPE_LABEL[type]}</span>
                 <span className="font-data" style={{ color }}>
-                  収益 {tag}
+                  売上 {tag}
                 </span>
                 {info.buildMult < 1 && (
-                  <span className="font-data text-candy-teal">設立費安</span>
+                  <span className="font-data text-candy-teal">出店費安</span>
                 )}
               </li>
             );
@@ -131,7 +157,7 @@ const PAGES: Page[] = [
         移動先ではハプニングやチャンスが待っています。
         <ul className="mt-3 flex flex-col gap-1.5 text-left">
           <li>🃏 到着時に確率でイベントカードを引きます</li>
-          <li>📈 景気（不況↔好況）は毎ラウンド変動し、収益に影響</li>
+          <li>📈 景気（不況↔好況）は毎ラウンド変動し、売上に影響</li>
           <li>💾 進行は自動セーブ。「つづきから」で再開できます</li>
         </ul>
         <p className="mt-3 font-bold text-finance-gold">

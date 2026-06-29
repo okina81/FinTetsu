@@ -63,23 +63,25 @@ export type Player = {
   position: string;
   cash: number;
   debt: number;
-  /** 破綻（デフォルト）済みか。連鎖倒産で脱落するとターンから外れる。 */
+  /** 倒産（デフォルト）済みか。連鎖倒産で脱落するとターンから外れる。 */
   bankrupt: boolean;
 };
 
 /**
- * インターバンク（銀行間）融資の 1 本。債権者 creditor が債務者 debtor に
- * principal を貸している状態を表す有向エッジ。これらのエッジの網が、
- * そのままデフォルト連鎖（システミックリスク）の伝播経路になる。
+ * 企業間の取引信用（売掛金 / 買掛金）の 1 本。
+ * supplier が buyer に商品・サービスを掛けで提供し、buyer がその代金 amount を
+ * 後払いで負っている状態を表す有向エッジ（supplier の売掛金＝資産 /
+ * buyer の買掛金＝負債）。これらのエッジの網が、そのまま「取引先の倒産で
+ * 売掛金が焦げ付く」連鎖倒産の伝播経路になる。
  */
-export type InterbankLoan = {
+export type TradeCredit = {
   id: string;
-  /** 貸し手（このプレイヤーの資産＝債権）。 */
-  creditorId: string;
-  /** 借り手（このプレイヤーの負債）。 */
-  debtorId: string;
-  /** 元本（円）。 */
-  principal: number;
+  /** 売り手（代金を受け取る側＝売掛金＝資産を持つ）。 */
+  supplierId: string;
+  /** 買い手（代金を後払いで負う側＝買掛金＝負債を持つ）。 */
+  buyerId: string;
+  /** 売掛 / 買掛の金額（円）。 */
+  amount: number;
 };
 
 /** 都市に建つ支店。レベル 1〜5。 */
