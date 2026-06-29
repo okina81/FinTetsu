@@ -26,7 +26,11 @@ export class MapLayer {
   private coastGfx!: Phaser.GameObjects.Graphics;
   private routeGfx!: Phaser.GameObjects.Graphics;
   private nodesGfx!: Phaser.GameObjects.Graphics;
+  /** 主要駅ラベル（常時表示）。 */
   private readonly labels: Phaser.GameObjects.Text[] = [];
+  /** その他の駅ラベル（ズームイン時のみ表示・LOD）。 */
+  private readonly minorLabels: Phaser.GameObjects.Text[] = [];
+  private minorVisible = false;
   /** プレイヤーごとの自支店路線レイヤー。 */
   private readonly ownedRouteGfxById = new Map<
     string,
@@ -38,6 +42,8 @@ export class MapLayer {
   static readonly NODE_RADIUS = 7;
   /** ラベルを常時表示する人口しきい値（主要駅のみ）。 */
   private static readonly LABEL_POP = 60;
+  /** minor 駅ラベルを表示し始めるズーム倍率。 */
+  private static readonly LOD_ZOOM = 0.95;
   private static readonly LAND_FILL = 0x101b2e;
 
   constructor(scene: Phaser.Scene) {
@@ -160,22 +166,38 @@ export class MapLayer {
     this.container.add(g);
   }
 
-  /** 主要駅（人口がしきい値以上）のみラベルを表示する。 */
+  /**
+   * 駅名ラベルを描く。主要駅（人口しきい値以上）は常時表示、
+   * それ以外（minor）はズームイン時のみ表示（LOD）。
+   */
   private drawLabels(): void {
     const r = MapLayer.NODE_RADIUS;
     for (const c of CITIES) {
-      if ((c.population ?? 0) < MapLayer.LABEL_POP) continue;
+      const major = (c.population ?? 0) >= MapLayer.LABEL_POP;
       const t = this.scene.add.text(c.x, c.y + r + 3, c.name, {
         fontFamily: FONTS.sans,
-        fontSize: '13px',
-        color: '#f3f1ff',
-        fontStyle: 'bold',
+        fontSize: major ? '13px' : '11px',
+        color: major ? '#f3f1ff' : '#c9cdf0',
+        fontStyle: major ? 'bold' : 'normal',
       });
       t.setOrigin(0.5, 0);
       t.setShadow(0, 0, '#0a0e1a', 5, true, true);
-      this.labels.push(t);
       this.container.add(t);
+      if (major) {
+        this.labels.push(t);
+      } else {
+        t.setVisible(false);
+        this.minorLabels.push(t);
+      }
     }
+  }
+
+  /** ズーム倍率に応じて minor 駅ラベルの表示/非表示を切り替える（LOD）。 */
+  applyLOD(zoom: number): void {
+    const show = zoom >= MapLayer.LOD_ZOOM;
+    if (show === this.minorVisible) return;
+    this.minorVisible = show;
+    for (const t of this.minorLabels) t.setVisible(show);
   }
 
   private applyGlow(
@@ -196,6 +218,7 @@ export class MapLayer {
     this.routeGfx?.destroy();
     this.nodesGfx?.destroy();
     this.labels.forEach((t) => t.destroy());
+    this.minorLabels.forEach((t) => t.destroy());
     this.ownedRouteGfxById.forEach((g) => g.destroy());
     this.ownedRouteGfxById.clear();
     this.container.destroy();
