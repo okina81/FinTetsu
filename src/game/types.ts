@@ -65,6 +65,10 @@ export type Player = {
   debt: number;
   /** 倒産（デフォルト）済みか。連鎖倒産で脱落するとターンから外れる。 */
   bankrupt: boolean;
+  /** DX 化レベル（0〜3）。全拠点の売上に永続ブーストがかかる。 */
+  dx: number;
+  /** 経営支援SaaS（ビジネスマッチング）に加入中か。毎ターン固定費。 */
+  saas: boolean;
 };
 
 /**

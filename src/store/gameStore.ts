@@ -196,6 +196,46 @@ const DEVELOP_COST = 1_000_000;
 /** 産業育成 1 段ごとの収益ブースト（+15%）。 */
 const DEVELOP_BONUS = 0.15;
 
+// --- 経営投資レイヤー（補助金 / ビジネスマッチングSaaS / DX化） ---
+// 参考：地域金融機関が提供する経営支援SaaS（Big Advance／ココペリ）の座組み。
+// SaaS が「マッチング・DX支援・補助金情報」を束ね、DX と補助金を後押しする。
+
+/** DX 化の最大レベル。 */
+const DX_MAX = 3;
+/** DX 化を 1 段上げる費用（レベル 1→3）。 */
+const DX_COSTS: Record<1 | 2 | 3, number> = {
+  1: 2_000_000,
+  2: 3_000_000,
+  3: 4_000_000,
+};
+/** DX 化 1 段ごとの全拠点売上ブースト（+12%）。 */
+const DX_BONUS = 0.12;
+
+/** 経営支援SaaS の毎ターン固定費（サブスク料・20万）。資金繰りを圧迫する。 */
+const SAAS_FEE = 200_000;
+/** SaaS 加入中、自社拠点に止まられたときの取引額（収入）の倍率（マッチング上乗せ）。 */
+const SAAS_MATCH_MULT = 1.2;
+/** SaaS 加入中、買掛金にかかる金利相当コストの割引率（与信・資金繰り支援で半減）。 */
+const SAAS_CREDIT_DISCOUNT = 0.5;
+
+/** 補助金の還元率（投資額に対して戻る割合）。SaaS 加入中は手厚い。 */
+const SUBSIDY_RATE = 0.3;
+const SUBSIDY_RATE_SAAS = 0.4;
+
+/** DX 投資・過疎地域出店に対する補助金額（SaaS 加入なら還元率UP）。 */
+function subsidyFor(cost: number, saas: boolean): number {
+  return Math.round(cost * (saas ? SUBSIDY_RATE_SAAS : SUBSIDY_RATE));
+}
+/** DX レベルに応じた全拠点売上の倍率。 */
+function dxMultiplier(dx: number): number {
+  return 1 + dx * DX_BONUS;
+}
+/** 次の DX レベルへの費用（最大なら 0）。 */
+function dxCostOf(dx: number): number {
+  if (dx >= DX_MAX) return 0;
+  return DX_COSTS[(dx + 1) as 1 | 2 | 3];
+}
+
 export type EconomyLevel = 1 | 2 | 3 | 4 | 5;
 
 /** 景気レベルごとの収益倍率（設計書 6-2：不況 -20% / 普通 / 好況 +20%）。 */
@@ -229,6 +269,8 @@ function makePlayers(): Player[] {
     cash: START_CASH,
     debt: 0,
     bankrupt: false,
+    dx: 0,
+    saas: false,
   }));
 }
 
@@ -305,6 +347,10 @@ export type GameStore = {
   upgradeBranch: () => void;
   /** 現在地の自社拠点で地域育成（産業育成）を行う。 */
   developCity: () => void;
+  /** DX 化に投資して全拠点の売上を底上げする（補助金が一部戻る）。 */
+  investDX: () => void;
+  /** 経営支援SaaS（ビジネスマッチング）の加入 / 解約を切り替える。 */
+  toggleSaas: () => void;
   /** 引いたイベントカードの効果を適用し、行動フェーズへ進む。 */
   applyEventCard: () => void;
   endTurn: () => void;
@@ -327,14 +373,19 @@ export type GameStore = {
   payableOf: (playerId: string) => number;
   /** プレイヤーの自己資本比率（0〜1）と信用格付け。 */
   capital: (playerId: string) => { ratio: number; rating: string };
-  /** 現在地で人間が取れる行動（build / upgrade / develop 可否）。 */
+  /** 現在地で人間が取れる行動（build / upgrade / develop / DX / SaaS 可否）。 */
   actionAt: (playerId: string) => {
     canBuild: boolean;
     canUpgrade: boolean;
     canDevelop: boolean;
+    canInvestDX: boolean;
     buildCost: number;
     upgradeCost: number;
     developCost: number;
+    dxLevel: number;
+    dxCost: number;
+    saas: boolean;
+    saasFee: number;
   };
 };
 
@@ -412,8 +463,10 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const branch = branches[dest];
     const paysFee = !!branch && branch.ownerId !== me.id;
     if (paysFee && branch) {
-      const fee = BRANCH_SPECS[branch.level].fee;
       const owner = players.find((p) => p.id === branch.ownerId);
+      // 売り手が SaaS（ビジネスマッチング）加入中なら取引額が上乗せされる
+      const baseFee = BRANCH_SPECS[branch.level].fee;
+      const fee = Math.round(baseFee * (owner?.saas ? SAAS_MATCH_MULT : 1));
       // 現金で払える分は即支払い、足りない分は買掛金（後払い）になる
       const tx = settleTransaction(
         players2,
@@ -424,7 +477,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       );
       players2 = tx.players;
       credits2 = tx.credits;
-      message = `${me.name} は ${cityName} で ${owner?.name ?? ''} と取引、${formatMan(fee)} を支払い（仕入れ）`;
+      const matchTag = owner?.saas ? '・マッチング' : '';
+      message = `${me.name} は ${cityName} で ${owner?.name ?? ''} と取引、${formatMan(fee)} を支払い（仕入れ${matchTag}）`;
       if (tx.credit > 0) {
         message += `（うち ${formatMan(tx.credit)} は買掛金）`;
       }
@@ -520,16 +574,21 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (phase !== 'action') return;
     const me = players[currentPlayerIndex];
     const cid = me.position;
-    if (branches[cid]) return; // 既に支店がある
-    const cost = buildCostFor(CITY_BY_ID[cid]?.type ?? 'tourism');
+    if (branches[cid]) return; // 既に拠点がある
+    const cityType = CITY_BY_ID[cid]?.type ?? 'tourism';
+    const cost = buildCostFor(cityType);
     if (me.cash < cost) return;
     const cityName = CITY_BY_ID[cid]?.name ?? cid;
+    // 過疎地域への出店は地方創生補助金の対象（投資額の一部が戻る）
+    const subsidy = cityType === 'rural' ? subsidyFor(cost, me.saas) : 0;
     set({
       players: players.map((p, i) =>
-        i === currentPlayerIndex ? { ...p, cash: p.cash - cost } : p,
+        i === currentPlayerIndex ? { ...p, cash: p.cash - cost + subsidy } : p,
       ),
       branches: { ...branches, [cid]: { ownerId: me.id, level: 1 } },
-      message: `${me.name} は ${cityName} に ${BRANCH_SPECS[1].name}（${formatMan(cost)}）を設立`,
+      message:
+        `${me.name} は ${cityName} に ${BRANCH_SPECS[1].name}（${formatMan(cost)}）を出店` +
+        (subsidy > 0 ? `（地方創生補助金 +${formatMan(subsidy)}）` : ''),
     });
   },
 
@@ -559,7 +618,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const me = players[currentPlayerIndex];
     const cid = me.position;
     const b = branches[cid];
-    if (!b || b.ownerId !== me.id) return; // 自支店のある都市のみ育成可
+    if (!b || b.ownerId !== me.id) return; // 自社拠点のある都市のみ育成可
     if (me.cash < DEVELOP_COST) return;
     const cityName = CITY_BY_ID[cid]?.name ?? cid;
     set({
@@ -567,7 +626,44 @@ export const useGameStore = create<GameStore>((set, get) => ({
         i === currentPlayerIndex ? { ...p, cash: p.cash - DEVELOP_COST } : p,
       ),
       develop: { ...develop, [cid]: (develop[cid] ?? 0) + 1 },
-      message: `${me.name} は ${cityName} の産業を育成（${formatMan(DEVELOP_COST)}）→ 収益UP`,
+      message: `${me.name} は ${cityName} の産業を育成（${formatMan(DEVELOP_COST)}）→ 売上UP`,
+    });
+  },
+
+  investDX: () => {
+    const { phase, players, currentPlayerIndex } = get();
+    if (phase !== 'action') return;
+    const me = players[currentPlayerIndex];
+    if (me.dx >= DX_MAX) return;
+    const cost = dxCostOf(me.dx);
+    if (me.cash < cost) return;
+    // DX 投資は補助金（ものづくり補助金など）の対象。投資額の一部が戻る。
+    const subsidy = subsidyFor(cost, me.saas);
+    const nextDx = me.dx + 1;
+    set({
+      players: players.map((p, i) =>
+        i === currentPlayerIndex
+          ? { ...p, cash: p.cash - cost + subsidy, dx: nextDx }
+          : p,
+      ),
+      message:
+        `${me.name} は DX 化に投資（${formatMan(cost)}）→ Lv${nextDx}・全拠点売上+${Math.round(nextDx * DX_BONUS * 100)}%` +
+        (subsidy > 0 ? `（補助金 +${formatMan(subsidy)}）` : ''),
+    });
+  },
+
+  toggleSaas: () => {
+    const { phase, players, currentPlayerIndex } = get();
+    if (phase !== 'action') return;
+    const me = players[currentPlayerIndex];
+    const next = !me.saas;
+    set({
+      players: players.map((p, i) =>
+        i === currentPlayerIndex ? { ...p, saas: next } : p,
+      ),
+      message: next
+        ? `${me.name} は経営支援SaaS（ビジネスマッチング）に加入（月額${formatMan(SAAS_FEE)}）`
+        : `${me.name} は経営支援SaaS を解約`,
     });
   },
 
@@ -585,7 +681,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
     if (phase !== 'action') return;
     const me = players[currentPlayerIndex];
 
-    // 収益：自分の全拠点の収益を回収（景気・地域育成を反映）
+    // 収益：自分の全拠点の収益を回収（景気・地域育成・DX 化を反映）
+    const dxMult = dxMultiplier(me.dx);
     let revenue = 0;
     for (const cid in branches) {
       if (branches[cid].ownerId === me.id) {
@@ -597,24 +694,39 @@ export const useGameStore = create<GameStore>((set, get) => ({
         );
       }
     }
+    revenue = Math.round(revenue * dxMult);
     let players2 = players.map((p, i) =>
       i === currentPlayerIndex ? { ...p, cash: p.cash + revenue } : p,
     );
     let credits2 = credits;
     let branches2 = branches;
 
+    // 経営支援SaaS の月額固定費（加入中のみ）。資金繰りを圧迫する。
+    const saasFee = me.saas ? SAAS_FEE : 0;
+    if (saasFee > 0) {
+      players2 = players2.map((p) =>
+        p.id === me.id ? { ...p, cash: p.cash - saasFee } : p,
+      );
+    }
+
     // 買掛金の金利相当コスト：自分の買掛金に毎ターン費用が発生し、各仕入先へ支払う。
+    // SaaS（与信・資金繰り支援）加入中はこのコストが軽減される。
     // 払いきれなければ資金繰りが行き詰まり（現金マイナス）、倒産判定にかかる。
     const myPayables = credits.filter((c) => c.buyerId === me.id);
+    const creditRate = me.saas
+      ? TRADE_CREDIT_RATE * SAAS_CREDIT_DISCOUNT
+      : TRADE_CREDIT_RATE;
     let interestPaid = 0;
     if (myPayables.length > 0) {
       const perSupplier: Record<string, number> = {};
       for (const c of myPayables) {
-        const amt = Math.round(c.amount * TRADE_CREDIT_RATE);
+        const amt = Math.round(c.amount * creditRate);
         perSupplier[c.supplierId] = (perSupplier[c.supplierId] ?? 0) + amt;
         interestPaid += amt;
       }
-      const canPay = me.cash >= interestPaid;
+      // SaaS 月額を引いた後の現金で利息を払えるか
+      const cashNow = players2[currentPlayerIndex].cash;
+      const canPay = cashNow >= interestPaid;
       players2 = players2.map((p) => {
         if (p.id === me.id) return { ...p, cash: p.cash - interestPaid };
         // 払える場合のみ仕入先へ入金（払えない＝資金繰り倒産で債権は連鎖で焦げ付く）
@@ -719,8 +831,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
         ? ` ［景気${nextEconomy > economy ? '上昇' : '悪化'}→${economyLabel(nextEconomy)}］`
         : '';
     const flows: string[] = [];
-    if (revenue > 0) flows.push(`収益 ${formatMan(revenue)}`);
+    if (revenue > 0) flows.push(`売上 ${formatMan(revenue)}`);
     if (interestPaid > 0) flows.push(`買掛金利息 −${formatMan(interestPaid)}`);
+    if (saasFee > 0) flows.push(`SaaS −${formatMan(saasFee)}`);
     const flowMsg =
       flows.length > 0 ? `${me.name}：${flows.join(' / ')} → ` : '';
     set({
@@ -837,22 +950,33 @@ export const useGameStore = create<GameStore>((set, get) => ({
         canBuild: false,
         canUpgrade: false,
         canDevelop: false,
+        canInvestDX: false,
         buildCost: 0,
         upgradeCost: 0,
         developCost: 0,
+        dxLevel: 0,
+        dxCost: 0,
+        saas: false,
+        saasFee: SAAS_FEE,
       };
     }
     const b = branches[p.position];
     const buildCost = buildCostFor(CITY_BY_ID[p.position]?.type ?? 'tourism');
     const upCost = b ? upgradeCost(b.level) : 0;
     const ownsHere = !!b && b.ownerId === p.id;
+    const dxCost = dxCostOf(p.dx);
     return {
       canBuild: !b && p.cash >= buildCost,
       canUpgrade: ownsHere && b!.level < MAX_BRANCH_LEVEL && p.cash >= upCost,
       canDevelop: ownsHere && p.cash >= DEVELOP_COST,
+      canInvestDX: p.dx < DX_MAX && p.cash >= dxCost,
       buildCost,
       upgradeCost: upCost,
       developCost: DEVELOP_COST,
+      dxLevel: p.dx,
+      dxCost,
+      saas: p.saas,
+      saasFee: SAAS_FEE,
     };
   },
 }));

@@ -269,6 +269,20 @@ function PlayerCard({
           <span>自己資本 {Math.round(ratio * 100)}%</span>
         </div>
       )}
+      {(player.dx > 0 || player.saas) && (
+        <div className="mt-1 flex items-center gap-1.5 text-[10px]">
+          {player.dx > 0 && (
+            <span className="rounded-full bg-telegraph-blue/20 px-1.5 py-0.5 font-data text-telegraph-blue">
+              💻 DX{player.dx}
+            </span>
+          )}
+          {player.saas && (
+            <span className="rounded-full bg-leaf-green/20 px-1.5 py-0.5 font-data text-player-3">
+              🔗 SaaS
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -393,6 +407,8 @@ function ActionBar() {
   const buildBranch = useGameStore((s) => s.buildBranch);
   const upgradeBranch = useGameStore((s) => s.upgradeBranch);
   const developCity = useGameStore((s) => s.developCity);
+  const investDX = useGameStore((s) => s.investDX);
+  const toggleSaas = useGameStore((s) => s.toggleSaas);
   const actionAt = useGameStore((s) => s.actionAt);
 
   const me = players[currentPlayerIndex];
@@ -430,6 +446,21 @@ function ActionBar() {
       {isHuman && phase === 'action' && a.canDevelop && (
         <button type="button" onClick={developCity} className={ghost}>
           🌱 地域育成 {formatMan(a.developCost)}
+        </button>
+      )}
+      {isHuman && phase === 'action' && a.canInvestDX && (
+        <button type="button" onClick={investDX} className={ghost}>
+          💻 DX化 Lv{a.dxLevel + 1} {formatMan(a.dxCost)}
+        </button>
+      )}
+      {isHuman && phase === 'action' && (
+        <button
+          type="button"
+          onClick={toggleSaas}
+          className={a.saas ? primary : ghost}
+          title="ビジネスマッチングSaaS：取引額+20% / 買掛金利息を軽減 / 補助金UP"
+        >
+          {a.saas ? '🔗 SaaS加入中' : `🔗 SaaS加入 ${formatMan(a.saasFee)}/T`}
         </button>
       )}
 

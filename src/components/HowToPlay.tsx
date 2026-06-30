@@ -114,6 +114,33 @@ const PAGES: Page[] = [
     ),
   },
   {
+    icon: '🚀',
+    title: '経営投資で差をつける',
+    body: (
+      <>
+        現金をためるだけでなく、会社そのものへ投資できます（地域金融機関の
+        経営支援SaaSが束ねる、補助金・マッチング・DX支援のイメージ）。
+        <ul className="mt-3 flex flex-col gap-1.5 text-left">
+          <li>
+            💻 <span className="font-bold">DX化</span>
+            ：投資すると全拠点の売上が永続UP（Lv3まで）
+          </li>
+          <li>
+            🔗 <span className="font-bold">経営支援SaaS</span>
+            （月額）：取引額+20%／買掛金利息を軽減／補助金UP
+          </li>
+          <li>
+            🎁 <span className="font-bold text-finance-gold">補助金</span>
+            ：DX投資・過疎地域への出店で投資額の一部が戻る
+          </li>
+        </ul>
+        <p className="mt-2 text-[12px] text-smoke-gray">
+          ※ 先行投資とSaaS固定費は資金繰りを圧迫します。攻めすぎ注意。
+        </p>
+      </>
+    ),
+  },
+  {
     icon: '🎨',
     title: 'マスの色＝売上効果',
     body: (

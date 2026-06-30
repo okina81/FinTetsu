@@ -389,6 +389,91 @@ describe('gameStore — 取引信用 / 連鎖倒産', () => {
   });
 });
 
+describe('gameStore — 経営投資（補助金 / SaaS / DX）', () => {
+  beforeEach(() => s().reset());
+  afterEach(() => vi.restoreAllMocks());
+
+  it('investDX：DX レベルが上がり、補助金で投資額の一部が戻る', () => {
+    useGameStore.setState({
+      phase: 'action',
+      players: s().players.map((p) =>
+        p.id === 'p1' ? { ...p, cash: 10_000_000 } : p,
+      ),
+    });
+    const before = s().players[0].cash;
+    const dxCost = s().actionAt('p1').dxCost;
+    s().investDX();
+    expect(s().players[0].dx).toBe(1);
+    const after = s().players[0].cash;
+    expect(after).toBeLessThan(before); // 投資して現金は減る
+    expect(after).toBeGreaterThan(before - dxCost); // 補助金が一部戻る
+  });
+
+  it('DX 化で全拠点の売上が上乗せされる', () => {
+    useGameStore.setState({
+      phase: 'action',
+      economy: 3,
+      branches: { osaka: { ownerId: 'p1', level: 3 } },
+      players: s().players.map((p) => (p.id === 'p1' ? { ...p, dx: 2 } : p)),
+    });
+    const before = s().players[0].cash;
+    s().endTurn();
+    const baseRevenue = Math.round(BRANCH_SPECS[3].revenue * OSAKA_MULT);
+    const gained = s().players[0].cash - before;
+    expect(gained).toBeGreaterThan(baseRevenue); // DX 分だけ上乗せ
+  });
+
+  it('SaaS：加入中は毎ターン月額が引かれる', () => {
+    useGameStore.setState({
+      phase: 'action',
+      branches: {},
+      players: s().players.map((p) =>
+        p.id === 'p1' ? { ...p, saas: true } : p,
+      ),
+    });
+    const before = s().players[0].cash;
+    s().endTurn();
+    // 月額 SAAS_FEE（20万）が引かれる
+    expect(s().players[0].cash).toBe(before - 200_000);
+  });
+
+  it('SaaS：売り手が加入中だと取引額が上乗せ（マッチング）される', () => {
+    useGameStore.setState({
+      phase: 'moving',
+      players: s().players.map((p) =>
+        p.id === 'p2' ? { ...p, saas: true } : p,
+      ),
+      branches: { tokyo: { ownerId: 'p2', level: 2 } },
+      pendingMove: { dest: 'tokyo', path: ['osaka', 'tokyo'] },
+    });
+    const p1Before = s().players[0].cash;
+    const p2Before = s().players[1].cash;
+    // マッチング上乗せ 1.2 倍
+    const fee = Math.round(BRANCH_SPECS[2].fee * 1.2);
+    s().completeMove();
+    expect(s().players[0].cash).toBe(p1Before - fee);
+    expect(s().players[1].cash).toBe(p2Before + fee);
+  });
+
+  it('補助金：過疎地域への出店は投資額の一部が戻る', () => {
+    const rural = CITIES.find((c) => c.type === 'rural');
+    expect(rural).toBeTruthy();
+    useGameStore.setState({
+      phase: 'action',
+      branches: {},
+      players: s().players.map((p) =>
+        p.id === 'p1' ? { ...p, position: rural!.id, cash: 10_000_000 } : p,
+      ),
+    });
+    const before = s().players[0].cash;
+    const cost = s().actionAt('p1').buildCost;
+    s().buildBranch();
+    expect(s().branches[rural!.id]).toBeTruthy();
+    // 出店費を払うが、地方創生補助金で一部戻るので純減は cost 未満
+    expect(s().players[0].cash).toBeGreaterThan(before - cost);
+  });
+});
+
 describe('gameStore — セーブ / ロード', () => {
   beforeEach(() => s().reset());
   afterEach(() => {

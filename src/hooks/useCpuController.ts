@@ -84,14 +84,24 @@ function pickDestination(
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
-/** CPU の到着後行動：建てる→強化→地域育成の順で、資金に応じて選ぶ。 */
+/**
+ * CPU の到着後行動：出店→強化→DX投資→地域育成の順で、資金に応じて選ぶ。
+ * 手元資金に余裕があれば経営支援SaaS にも加入する。
+ */
 function decideAction(s: ReturnType<typeof useGameStore.getState>): void {
   const me = s.players[s.currentPlayerIndex];
   const a = s.actionAt(me.id);
+  // 余裕があるときは経営支援SaaS（ビジネスマッチング）への加入を検討
+  if (!a.saas && me.cash > 6_000_000 && Math.random() < 0.25) {
+    s.toggleSaas();
+    return;
+  }
   if (a.canBuild) {
     s.buildBranch();
   } else if (a.canUpgrade && Math.random() < 0.6) {
     s.upgradeBranch();
+  } else if (a.canInvestDX && me.cash > a.dxCost * 2 && Math.random() < 0.4) {
+    s.investDX();
   } else if (a.canDevelop && Math.random() < 0.4) {
     s.developCity();
   }
