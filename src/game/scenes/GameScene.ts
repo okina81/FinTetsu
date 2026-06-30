@@ -59,7 +59,7 @@ export class GameScene extends Phaser.Scene {
         else if (s.phase === 'gameover') cam.shake(400, 0.01);
         else if (prevPhase === 'moving' && s.phase === 'action') {
           if (pos) cam.pan(pos.x, pos.y, 350, 'Sine.easeInOut');
-          if (s.message.includes('利用料')) cam.shake(220, 0.008);
+          if (s.message.includes('仕入れ')) cam.shake(220, 0.008);
         }
         prevPhase = s.phase;
       }

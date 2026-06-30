@@ -3,6 +3,7 @@ import {
   useGameStore,
   MAX_TURN,
   START_CASH,
+  CAPITAL_FLOOR,
   economyMultiplier,
 } from './gameStore';
 import { BRANCH_SPECS } from '@/game/branchSpec';
@@ -125,12 +126,12 @@ describe('gameStore — 支店経済', () => {
     );
   });
 
-  it('総資産 = 現金 − 借入 + 支店評価額', () => {
+  it('総資産 = 現金 + 拠点評価額 + 売掛金 − 買掛金', () => {
     s().reset();
     useGameStore.setState({
       branches: { osaka: { ownerId: 'p1', level: 1 } },
     });
-    // 総資産 = 初期現金 + 支店評価額（Lv1）
+    // 総資産 = 初期現金 + 拠点評価額（Lv1）
     expect(s().totalAssets('p1')).toBe(START_CASH + BRANCH_SPECS[1].cost);
   });
 });
@@ -292,6 +293,99 @@ describe('gameStore — イベントカード', () => {
     s().applyEventCard();
     // inbound = 観光都市の develop +1
     expect(s().develop[tourismCity.id]).toBe(1);
+  });
+});
+
+describe('gameStore — 取引信用 / 連鎖倒産', () => {
+  beforeEach(() => s().reset());
+  afterEach(() => vi.restoreAllMocks());
+
+  it('現金が足りず取引代金を払えないと不足分が買掛金になる', () => {
+    // p1 は現金わずか + 高額拠点を保有（純資産は黒字＝倒産しない）。
+    // 他社の Lv4 拠点（取引額 150万）で取引し、足りない分は掛け（買掛金）に。
+    useGameStore.setState({
+      phase: 'moving',
+      players: s().players.map((p) =>
+        p.id === 'p1' ? { ...p, cash: 100_000 } : p,
+      ),
+      branches: {
+        tokyo: { ownerId: 'p2', level: 4 },
+        osaka: { ownerId: 'p1', level: 4 }, // p1 のクッション資産
+      },
+      pendingMove: { dest: 'tokyo', path: ['osaka', 'tokyo'] },
+    });
+
+    s().completeMove();
+
+    const p1 = s().players[0];
+    expect(p1.bankrupt).toBe(false); // 拠点評価額があるので倒産しない
+    expect(p1.cash).toBe(0); // 現金で払える分は払い 0 に
+    expect(s().payableOf('p1')).toBeGreaterThan(0); // 買掛金が発生
+    // 買掛金 = 取引額 150万 − 手持ち 10万 = 140万
+    expect(s().payableOf('p1')).toBe(BRANCH_SPECS[4].fee - 100_000);
+    // 売り手 p2 は同額の売掛金を持つ
+    expect(s().totalAssets('p2')).toBeGreaterThan(0);
+  });
+
+  it('債務超過の会社が倒産すると、売掛金を持つ取引先へ損失が連鎖する', () => {
+    // p1→p2→p3 の取引信用チェーン（矢印は売り手→買い手）。
+    // buyer の p1 が債務超過なら supplier の p2 も売掛金を失い連鎖倒産。
+    useGameStore.setState({
+      phase: 'action',
+      currentPlayerIndex: 3, // 手番は無関係な p4
+      branches: {},
+      players: s().players.map((p) => ({ ...p, cash: 0 })),
+      credits: [
+        { id: 'a', supplierId: 'p2', buyerId: 'p1', amount: 10_000_000 },
+        { id: 'b', supplierId: 'p3', buyerId: 'p2', amount: 9_000_000 },
+      ],
+    });
+
+    s().endTurn();
+
+    const byId = (id: string) => s().players.find((p) => p.id === id)!;
+    expect(byId('p1').bankrupt).toBe(true); // 起点の債務超過
+    expect(byId('p2').bankrupt).toBe(true); // 売掛金焦げ付きで連鎖倒産
+    expect(byId('p3').bankrupt).toBe(false); // 損失は出すが生存
+    expect(byId('p4').bankrupt).toBe(false);
+    expect(s().credits).toHaveLength(0); // 倒産に絡む取引信用は消滅
+  });
+
+  it('自分以外が全社倒産すると最後の1社が勝利する', () => {
+    useGameStore.setState({
+      phase: 'action',
+      currentPlayerIndex: 0,
+      branches: {},
+      // p2,p3,p4 が p1 への買掛金だけを抱えて債務超過（＝p1 の売掛金は焦げ付く）
+      players: s().players.map((p) => ({ ...p, cash: 0 })),
+      credits: [
+        { id: 'a', supplierId: 'p1', buyerId: 'p2', amount: 5_000_000 },
+        { id: 'b', supplierId: 'p1', buyerId: 'p3', amount: 5_000_000 },
+        { id: 'c', supplierId: 'p1', buyerId: 'p4', amount: 5_000_000 },
+      ],
+    });
+
+    s().endTurn();
+
+    expect(s().phase).toBe('gameover');
+    expect(s().winnerId).toBe('p1');
+  });
+
+  it('自己資本比率と格付け：無借金は AAA、過大な買掛金で低格付け', () => {
+    useGameStore.setState({
+      branches: { osaka: { ownerId: 'p1', level: 1 } },
+      credits: [],
+    });
+    expect(s().capital('p1').rating).toBe('AAA');
+    expect(s().capital('p1').ratio).toBeCloseTo(1, 5);
+
+    // p1 に多額の買掛金を負わせると比率が下がる
+    useGameStore.setState({
+      credits: [
+        { id: 'x', supplierId: 'p2', buyerId: 'p1', amount: 4_500_000 },
+      ],
+    });
+    expect(s().capital('p1').ratio).toBeLessThan(CAPITAL_FLOOR + 0.2);
   });
 });
 
