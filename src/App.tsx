@@ -98,6 +98,7 @@ export default function App() {
           <div className="pointer-events-none absolute right-3 top-3 rounded-pop bg-blueberry-700/80 px-3 py-1.5 text-[11px] text-smoke-gray">
             🖱️ ドラッグ:移動 ／ ホイール:ズーム ／ 駅クリック:情報
           </div>
+          <MessageBanner />
           <CityPopup />
         </main>
 
@@ -401,7 +402,6 @@ function ActionBar() {
   const players = useGameStore((s) => s.players);
   const currentPlayerIndex = useGameStore((s) => s.currentPlayerIndex);
   const dice = useGameStore((s) => s.dice);
-  const message = useGameStore((s) => s.message);
   const rollDice = useGameStore((s) => s.rollDice);
   const endTurn = useGameStore((s) => s.endTurn);
   const buildBranch = useGameStore((s) => s.buildBranch);
@@ -464,9 +464,7 @@ function ActionBar() {
         </button>
       )}
 
-      <span className="min-w-0 flex-1 truncate text-sm text-smoke-gray">
-        {me?.isCpu && phase !== 'gameover' ? `🤖 ${me.name} 思考中…` : message}
-      </span>
+      <span className="min-w-0 flex-1" />
 
       <button
         type="button"
@@ -477,6 +475,28 @@ function ActionBar() {
         ターン終了 ▶
       </button>
     </footer>
+  );
+}
+
+/** マップ上部に大きく表示する最新メッセージ。手番の出来事を見逃さないよう目立たせる。 */
+function MessageBanner() {
+  const phase = useGameStore((s) => s.phase);
+  const players = useGameStore((s) => s.players);
+  const currentPlayerIndex = useGameStore((s) => s.currentPlayerIndex);
+  const message = useGameStore((s) => s.message);
+  const me = players[currentPlayerIndex];
+  const text =
+    me?.isCpu && phase !== 'gameover' ? `🤖 ${me.name} 思考中…` : message;
+
+  return (
+    <div className="pointer-events-none absolute inset-x-0 top-3 z-10 flex justify-center px-4">
+      <p
+        key={text}
+        className="animate-pop-in max-w-xl rounded-pop border-2 border-finance-gold/50 bg-blueberry-700/95 px-5 py-2 text-center text-sm font-bold text-off-white shadow-pop-lg"
+      >
+        {text}
+      </p>
+    </div>
   );
 }
 
